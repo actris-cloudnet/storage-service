@@ -1,0 +1,60 @@
+version: "3.9"
+services:
+  db:
+    image: "postgres:13"
+    environment:
+      POSTGRES_DB: ss
+      POSTGRES_USER: ss
+      POSTGRES_PASSWORD: dev
+      PGUSER: ss
+    healthcheck:
+     test: ["CMD", "psql", "-c", "select 1"]
+     interval: 1s
+     retries: 120
+  moto-server:
+    image: "motoserver/moto"
+  storage-service:
+    image: storage-service
+    build:
+      context: ../
+      target: dev
+    depends_on:
+      db:
+        condition: service_healthy
+      moto-server:
+        condition: service_started
+    environment:
+      - SS_MODE=local
+      - PGUSER=ss
+      - PGPASSWORD=dev
+      - PGHOST=db
+      - PGDATABASE=ss
+    healthcheck:
+      test: ["CMD", "node", "-e", "const c=new require('net').Socket();c.connect(5900);c.on('connect',()=>process.exit(0))"]
+      interval: 1s
+      retries: 20
+    command: ["npm", "start"]
+  test:
+    image: storage-service
+    depends_on:
+      storage-service:
+        condition: service_healthy
+    environment:
+      - SS_MODE=local
+      - PGUSER=ss
+      - PGPASSWORD=dev
+      - PGHOST=db
+      - PGDATABASE=ss
+    command: ["npm", "test"]
+  lint:
+    image: storage-service
+    depends_on:
+      storage-service:
+        condition: service_healthy
+    environment:
+      - SS_MODE=local
+      - PGUSER=ss
+      - PGPASSWORD=dev
+      - PGHOST=db
+      - PGDATABASE=ss
+    command: ["npm", "run", "lint"]
