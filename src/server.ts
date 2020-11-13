@@ -42,7 +42,9 @@ import * as crypto from 'crypto'
 
   const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
     res.status(err.status || 500)
-    res.send(err.msg || err)
+    if (err.msg.code) // S3 error
+      res.send(`Upstream error: ${err.msg.code}`)
+    else res.send(err.msg)
     next()
   }
   app.use(errorHandler)
