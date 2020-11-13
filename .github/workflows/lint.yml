@@ -1,0 +1,26 @@
+name: Lint
+
+on: [push]
+
+jobs:
+  build:
+
+    timeout-minutes: 5
+
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: 'test' 
+      CI: true
+    steps:
+    - name: Install node
+      run: |
+          export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install v10.16
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install project
+      run: npm install
+    - name: Lint
+      run: npm run lint

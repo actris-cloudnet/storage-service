@@ -1,0 +1,71 @@
+#!/bin/bash
+set -e
+
+if [ -z $1 ]; then
+    echo "Action not specified"
+    exit 1
+fi
+
+action=$1
+nodeport=5900
+motoport=5901
+
+waitport () {
+    timeout=15
+    interval=1
+    i=0
+    echo -n "Waiting for port $1... "
+    while ! nc -z localhost $1; do
+        if [[ "$i" -ge $timeout ]]; then
+            echo "Timeout"
+            return 2
+        fi
+        sleep $interval
+        i=$((i+$interval))
+    done
+    echo "OK"
+    return 0
+}
+
+case "$action" in
+    dev-install)
+    npm install
+    cd python
+    python3 -m venv venv
+    source venv/bin/activate
+    pip3 install -r requirements.txt
+    cd ..
+    ;;
+
+    test-start)
+    source python/venv/bin/activate
+    truncate --size 0 all.log
+    nohup moto_server -p$motoport >> all.log 2>&1 &
+    waitport $motoport
+    nohup npm start >> all.log 2>&1 &
+    waitport $nodeport
+    ;;
+
+    dev-start)
+    ./control test-start
+    tail -fn100 all.log
+    ;;
+
+    dev-stop)
+    set +e
+    kill "$(lsof -t -i:$motoport)"
+    kill "$(lsof -t -i:$nodeport)"
+    ;;
+
+    dev-restart)
+    ./control dev-stop
+    ./control dev-start
+    ;;
+
+    *)
+    echo "Unknown action $action"
+    exit 1
+    ;;
+
+esac
+exit 0

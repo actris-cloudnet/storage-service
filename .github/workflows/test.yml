@@ -1,0 +1,61 @@
+name: Test
+
+on: [push]
+
+jobs:
+  build:
+
+    timeout-minutes: 5
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: [3.8]
+
+    env:
+      NODE_ENV: 'test' 
+      CI: true
+    steps:
+    - name: Add local bin to PATH
+      run: export PATH=/usr/local/bin:$PATH
+    - name: Install nvm
+      run: | 
+          wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+    - name: Install node
+      run: |
+          export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install v10.16
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }} 
+    - name: Symlink Python 3
+      run: sudo ln -s `which python` /usr/local/bin/python3
+    - name: Checkout  
+      uses: actions/checkout@v2
+    - name: Install project
+      run: |
+          . ~/.nvm/nvm.sh
+          nvm use v10
+          ./control dev-install
+    - name: Build project
+      run: |
+        . ~/.nvm/nvm.sh
+        nvm use v10
+        npx tsc --build tsconfig.json
+    - name: Start project
+      run: |
+          . ~/.nvm/nvm.sh
+          nvm use v10
+          ./control test-start
+    - name: Run tests
+      run: |
+        . ~/.nvm/nvm.sh
+        nvm use v10
+        sleep 10
+        npm test
+    - name: Print logs
+      if: always()
+      run: cat all.log

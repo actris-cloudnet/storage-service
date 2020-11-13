@@ -1,0 +1,8 @@
+{
+  "endpoint":"http://localhost:5901",
+  "accessKeyId":"dev",
+  "secretAccessKey":"dev",
+  "region":"EU",
+  "s3ForcePathStyle": true,
+  "computeChecksum": true
+}
