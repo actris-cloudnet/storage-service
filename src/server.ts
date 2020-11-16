@@ -49,6 +49,6 @@ import * as crypto from 'crypto'
   }
   app.use(errorHandler)
 
-  app.listen(port, () => console.log(`App listening on port ${port}!`))
+  app.listen(port, () => console.log(`App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}`))
 
 })()
