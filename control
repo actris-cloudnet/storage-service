@@ -35,6 +35,7 @@ case "$action" in
     source venv/bin/activate
     pip3 install -r requirements.txt
     cd ..
+    npx tsc --build tsconfig.json
     ;;
 
     test-start)
