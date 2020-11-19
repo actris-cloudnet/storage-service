@@ -19,7 +19,8 @@ const config: S3Config = {
   buckets: [
     'cloudnet-upload',
     'cloudnet-product',
-    'test'
+    'test',
+    'test-versioning'
   ],
   credentials: (process.env.NODE_ENV == 'production')
     ? readJSONFile('src/config/private/remote.credentials.json')

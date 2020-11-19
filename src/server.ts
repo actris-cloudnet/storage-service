@@ -20,13 +20,6 @@ import * as crypto from 'crypto'
   }))
 
   const s3 = new S3(config.connection)
-  // Create buckets if they don't exist
-  if (process.env.NODE_ENV != 'production') {
-    await Promise.all(config.buckets.map(bucket => {
-      s3.createBucket({Bucket: bucket}, e => e)
-    }
-    ))
-  }
 
   const routes = new Routes(s3)
   const middleware = new Middleware()
