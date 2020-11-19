@@ -28,30 +28,31 @@ export class Routes {
     try {
       exists = await this.s3ObjExists(uploadParams)
       managedUpload = this.s3.upload(uploadParams)
-      await Promise.all([
+      const [, uploadRes] = await Promise.all([
         this.checkHash(req, expectedChecksum),
         managedUpload.promise()
       ])
       size = await this.getSizeOfS3Obj(uploadParams)
+
+      if (exists) {
+        res.status(200)
+      } else {
+        res.status(201)
+      }
+
+      return res.send({size, version: (uploadRes as any).VersionId})
     } catch (err) {
       if (managedUpload) managedUpload.abort()
       if (err.status && err.msg) return next({status: err.status, msg: err.msg})
       return next({status: 502, msg: err})
     }
-
-    if (exists) {
-      res.status(200)
-    } else {
-      res.status(201)
-    }
-
-    return res.send({size})
   }
 
   getFile: RequestHandler = async (req, res, next) => {
     const downloadParams: GetObjectRequest = {
       Bucket: req.params.bucket,
-      Key: req.params.key
+      Key: req.params.key,
+      VersionId: req.header('X-Version')
     }
     const objStream = this.s3.getObject(downloadParams).createReadStream()
     objStream.on('error', (err: AWSError) => {
