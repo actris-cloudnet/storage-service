@@ -41,7 +41,7 @@ beforeAll(async () => {
     }
   }
   return s3.putBucketVersioning(params).promise()
-})
+}, 10000)
 
 describe('PUT /:bucket/:key', () => {
   beforeEach(deleteExistingObjects)
