@@ -22,17 +22,15 @@ export class Routes {
       Body: req,
     }
 
-    let size: number | undefined = 0
-    let exists = false
-    let managedUpload: ManagedUpload | undefined
+    let managedUpload
     try {
-      exists = await this.s3ObjExists(uploadParams)
+      const exists = await this.s3ObjExists(uploadParams)
       managedUpload = this.s3.upload(uploadParams)
       const [, uploadRes] = await Promise.all([
         this.checkHash(req, expectedChecksum),
         managedUpload.promise()
       ])
-      size = await this.getSizeOfS3Obj(uploadParams)
+      const size = await this.getSizeOfS3Obj(uploadParams)
 
       if (exists) {
         res.status(200)
