@@ -27,22 +27,6 @@ const deleteExistingObjects = async () => {
   return Promise.all(Contents.map(content => s3.deleteObject({Bucket: bucket, Key: content.Key}).promise()))
 }
 
-beforeAll(async () => {
-  try {
-    await Promise.all([bucket, versionedBucket].map(bucket =>
-      s3.createBucket({Bucket: bucket}).promise()
-    ))
-  } catch (e) {} // eslint-disable-line no-empty
-  const params = {
-    Bucket: versionedBucket,
-    VersioningConfiguration: {
-      MFADelete: 'Disabled',
-      Status: 'Enabled'
-    }
-  }
-  return s3.putBucketVersioning(params).promise()
-}, 10000)
-
 describe('PUT /:bucket/:key', () => {
   beforeEach(deleteExistingObjects)
 

@@ -44,6 +44,7 @@ case "$action" in
     nohup moto_server -p$motoport >> all.log 2>&1 &
     waitport $motoport
     nohup npm start >> all.log 2>&1 &
+    node init.js
     waitport $nodeport
     ;;
 
