@@ -2,9 +2,13 @@ const axios = require('axios')
 const fs = require('fs')
 const AWS = require('aws-sdk')
 
-const url = 'http://localhost:5900/test/'
+const bucket = 'test'
+const versionedBucket = 'test-versioning'
+const url = `http://localhost:5900/${bucket}/`
+const versionedUrl = `http://localhost:5900/${versionedBucket}/`
 const key = 'testdata.txt'
 const validUrl = `${url}${key}`
+const validVersionedUrl = `${versionedUrl}${key}`
 const testdataPath = 'tests/testdata.txt'
 const validConfig = {
   headers: {
@@ -15,7 +19,6 @@ const validConfig = {
     'password': 'test'
   }
 }
-const bucket = 'test'
 
 const s3 = new AWS.S3(JSON.parse(fs.readFileSync('src/config/local.connection.json').toString()))
 
@@ -23,6 +26,22 @@ const deleteExistingObjects = async () => {
   const {Contents} = await s3.listObjects({Bucket: bucket}).promise()
   return Promise.all(Contents.map(content => s3.deleteObject({Bucket: bucket, Key: content.Key}).promise()))
 }
+
+beforeAll(async () => {
+  try {
+    await Promise.all([bucket, versionedBucket].map(bucket =>
+      s3.createBucket({Bucket: bucket}).promise()
+    ))
+  } catch (e) {} // eslint-disable-line no-empty
+  const params = {
+    Bucket: versionedBucket,
+    VersioningConfiguration: {
+      MFADelete: 'Disabled',
+      Status: 'Enabled'
+    }
+  }
+  return s3.putBucketVersioning(params).promise()
+}, 10000)
 
 describe('PUT /:bucket/:key', () => {
   beforeEach(deleteExistingObjects)
@@ -45,6 +64,14 @@ describe('PUT /:bucket/:key', () => {
     await expect(axios.put(`${url}testdata.txt`, fs.createReadStream(testdataPath), validConfig))
       .resolves.toMatchObject({status: 200, data: {size: 8}})
     return expect(s3.headObject({Bucket: bucket, Key: key}).promise()).resolves.toBeTruthy()
+  })
+
+  it('should respond with 200 and file version when putting files to versioned bucket', async () => {
+    await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
+    const response = await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
+    expect(response.status).toEqual(200)
+    expect(response.data.version).toBeTruthy()
+    return expect(s3.headObject({Bucket: 'test-versioning', Key: key, VersionId: response.data.version}).promise()).resolves.toBeTruthy()
   })
 
   it('should respond with 400 if content-md5 header is missing', async () => {
@@ -85,6 +112,14 @@ describe('GET /:bucket/:key', () => {
     const key = 'kissa/koira/mursu.txt'
     await axios.put(`${url}${key}`, fs.createReadStream(testdataPath), validConfig)
     return expect(axios.get(`${url}${key}`, {auth: validConfig.auth})).resolves.toMatchObject({ status: 200, data: 'content\n' })
+  })
+
+  it('should respond with 200 and file contents when getting older version of file', async () => {
+    const response = await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
+    const axiosPutConf = {headers: {'Content-MD5': '/tsthMr+IIYstDmXUain4w=='}, auth: validConfig.auth}
+    await axios.put(validVersionedUrl, 'invalid', axiosPutConf)
+    const axiosConf = {auth: validConfig.auth, params: { version: response.data.version }}
+    return expect(axios.get(validVersionedUrl, axiosConf)).resolves.toMatchObject({ status: 200, data: 'content\n' })
   })
 
   it('should respond with 404 if file does not exist', async () => {
