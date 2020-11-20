@@ -118,12 +118,7 @@ describe('GET /:bucket/:key', () => {
     const response = await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
     const axiosPutConf = {headers: {'Content-MD5': '/tsthMr+IIYstDmXUain4w=='}, auth: validConfig.auth}
     await axios.put(validVersionedUrl, 'invalid', axiosPutConf)
-    const axiosConf = {
-      headers: {
-        'X-Version': response.data.version
-      },
-      auth: validConfig.auth
-    }
+    const axiosConf = {auth: validConfig.auth, params: { version: response.data.version }}
     return expect(axios.get(validVersionedUrl, axiosConf)).resolves.toMatchObject({ status: 200, data: 'content\n' })
   })
 

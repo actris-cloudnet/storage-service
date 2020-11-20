@@ -50,7 +50,7 @@ export class Routes {
     const downloadParams: GetObjectRequest = {
       Bucket: req.params.bucket,
       Key: req.params.key,
-      VersionId: req.header('X-Version')
+      VersionId: (req.query.version as string)
     }
     const objStream = this.s3.getObject(downloadParams).createReadStream()
     objStream.on('error', (err: AWSError) => {
