@@ -1,6 +1,6 @@
 import {S3, AWSError} from 'aws-sdk'
 import {Request, RequestHandler} from 'express'
-import {PutObjectRequest, GetObjectRequest, ManagedUpload} from 'aws-sdk/clients/s3'
+import {PutObjectRequest, GetObjectRequest} from 'aws-sdk/clients/s3'
 import * as crypto from 'crypto'
 
 
@@ -58,6 +58,20 @@ export class Routes {
       next({status: 502, msg: err})
     })
       .pipe(res)
+  }
+
+  deleteVolatileFile: RequestHandler = async (req, res, next) => {
+    const Params: GetObjectRequest = {
+      Bucket: req.params.bucket,
+      Key: req.params.key,
+    }
+    try {
+      await this.s3.deleteObject(Params).promise()
+    }
+    catch (err) {
+      next({status: 502, msg: err})
+    }
+    res.sendStatus(200)
   }
 
   private checkHash(req: Request, expectedChecksum: string) {
