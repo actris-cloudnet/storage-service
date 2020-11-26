@@ -32,6 +32,11 @@ import * as crypto from 'crypto'
     passport.authenticate('basic', {session: false}),
     middleware.validateParams,
     routes.getFile)
+  app.delete('/:bucket/*',
+    passport.authenticate('basic', {session: false}),
+    middleware.validateParams,
+    middleware.validateDeleteBucket,
+    routes.deleteVolatileFile)
 
   const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
     res.status(err.status || 500)
