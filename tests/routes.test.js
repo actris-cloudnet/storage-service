@@ -114,3 +114,25 @@ describe('GET /:bucket/:key', () => {
     return expect(axios.get(validUrl)).rejects.toMatchObject({ response: { status: 401, data: 'Unauthorized' }})
   })
 })
+
+describe('DELETE /:bucket/:key', () => {
+  beforeEach(deleteExistingObjects)
+
+  it('should respond with 401 on invalid credentials', async () => {
+    return expect(axios.delete(validUrl)).rejects.toMatchObject({ response: { status: 401, data: 'Unauthorized' }})
+  })
+
+  it('should respond with 405 if delete not allowed from the bucket', async () => {
+    const res = { response: { status: 405, data: 'DELETE not allowed for the bucket'}}
+    return expect(axios.delete(versionedUrl, {auth: validConfig.auth})).rejects.toMatchObject(res)
+  })
+
+  it('should respond with 200 when deleting file', async () => {
+    const url = `${validUrl}testdata.txt`
+    await axios.put(url, fs.createReadStream(testdataPath), validConfig)
+    expect(axios.get(url, validConfig)).resolves.toMatchObject({ status: 200, data: 'content\n' })
+    expect(axios.delete(url, validConfig)).resolves.toMatchObject({ status: 200 })
+    return expect(axios.get(url, validConfig)).rejects.toMatchObject({ response: { status: 404 }})
+  })
+
+})
