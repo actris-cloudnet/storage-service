@@ -19,6 +19,8 @@ const config: S3Config = {
   buckets: [
     'cloudnet-upload',
     'cloudnet-product',
+    'cloudnet-product-volatile',
+    'cloudnet-img',
     'test',
     'test-versioning'
   ],
