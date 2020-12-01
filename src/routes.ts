@@ -20,6 +20,7 @@ export class Routes {
       Bucket: req.params.bucket,
       Key: req.params.key,
       Body: req,
+      ContentType: req.headers['content-type'] || 'application/octet-stream'
     }
 
     let managedUpload
