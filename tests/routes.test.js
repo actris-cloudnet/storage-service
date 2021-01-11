@@ -13,6 +13,7 @@ const testdataPath = 'tests/testdata.txt'
 const validConfig = {
   headers: {
     'Content-MD5': '91uBeeS75+K0oHTc72LelQ==',
+    'Content-Type': 'text/plain'
   },
   auth: {
     'username': 'test',
