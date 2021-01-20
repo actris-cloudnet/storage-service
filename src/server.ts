@@ -7,10 +7,14 @@ import {S3} from 'aws-sdk'
 import * as passport from 'passport'
 import {BasicStrategy} from 'passport-http'
 import * as crypto from 'crypto'
+import { Client } from 'pg'
 
 (async function() {
   const port = config.port
   const app = express()
+
+  const client = new Client()
+  await client.connect()
 
   passport.use(new BasicStrategy((user: string, pw: string, done: Function) => {
     const pwHash = crypto.createHash('sha256').update(pw).digest('hex')
