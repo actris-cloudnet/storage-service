@@ -1,8 +1,13 @@
 import {RequestHandler} from 'express'
-import config from './config'
-
+import {Client} from 'pg'
 
 export class Middleware {
+
+  constructor(client: Client) {
+    this.client = client
+  }
+
+  client: Client
 
   validateDeleteBucket: RequestHandler = (req, _, next) => {
     const bucket = req.params.bucket
@@ -11,9 +16,12 @@ export class Middleware {
     return next()
   }
 
-  validateParams: RequestHandler = (req, _, next) => {
+  validateParams: RequestHandler = async (req, _, next) => {
     const bucket = req.params.bucket
-    if (!config.buckets.includes(bucket)) return next({status: 404, msg: 'Unknown bucket'})
+    const {rows} = await this.client.query('SELECT to_regclass($1) as bucket', [bucket])
+    const validBucket = rows[0].bucket
+    if (!validBucket) return next({status: 404, msg: `Unknown bucket: ${bucket}`})
+    req.params.bucket = validBucket
     req.params.key = req.params[0]
     return next()
   }

@@ -4,7 +4,7 @@
   "description": "",
   "main": "build/server.js",
   "scripts": {
-    "test": "jest",
+    "test": "export PGDATABASE='ss' && jest",
     "start": "nodemon -e js,json --ignore tests --ignore python",
     "lint": "eslint . --ext .js,.ts",
     "lint-fix": "eslint . --ext .js,.ts --fix"

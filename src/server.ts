@@ -25,8 +25,8 @@ import { Client } from 'pg'
 
   const s3 = new S3(config.connection)
 
-  const routes = new Routes(s3)
-  const middleware = new Middleware()
+  const routes = new Routes(s3, client)
+  const middleware = new Middleware(client)
 
   app.put('/:bucket/*',
     passport.authenticate('basic', {session: false}),
