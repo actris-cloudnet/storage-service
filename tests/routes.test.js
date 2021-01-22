@@ -1,6 +1,7 @@
 const axios = require('axios')
 const fs = require('fs')
 const AWS = require('aws-sdk')
+const {Client} = require('pg')
 
 const bucket = 'test'
 const versionedBucket = 'test-versioning'
@@ -24,6 +25,11 @@ const validConfig = {
 const s3 = new AWS.S3(JSON.parse(fs.readFileSync('src/config/local.connection.json').toString()))
 
 const deleteExistingObjects = async () => {
+  const client = new Client()
+  await client.connect()
+  await client.query('TRUNCATE TABLE test')
+  await client.query('TRUNCATE TABLE "test-versioning"')
+  await client.end()
   const {Contents} = await s3.listObjects({Bucket: bucket}).promise()
   return Promise.all(Contents.map(content => s3.deleteObject({Bucket: bucket, Key: content.Key}).promise()))
 }
@@ -129,10 +135,10 @@ describe('DELETE /:bucket/:key', () => {
   })
 
   it('should respond with 200 when deleting file', async () => {
-    const url = `${validUrl}testdata.txt`
+    const url = `${validUrl}`
     await axios.put(url, fs.createReadStream(testdataPath), validConfig)
-    expect(axios.get(url, validConfig)).resolves.toMatchObject({ status: 200, data: 'content\n' })
-    expect(axios.delete(url, validConfig)).resolves.toMatchObject({ status: 200 })
+    await expect(axios.get(url, validConfig)).resolves.toMatchObject({ status: 200, data: 'content\n' })
+    await expect(axios.delete(url, validConfig)).resolves.toMatchObject({ status: 200 })
     return expect(axios.get(url, validConfig)).rejects.toMatchObject({ response: { status: 404 }})
   })
 
