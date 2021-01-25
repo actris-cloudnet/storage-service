@@ -38,8 +38,8 @@ import { Client } from 'pg'
     routes.getFile)
   app.delete('/:bucket/*',
     passport.authenticate('basic', {session: false}),
-    middleware.validateParams,
     middleware.validateDeleteBucket,
+    middleware.validateParams,
     routes.deleteVolatileFile)
 
   const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
@@ -48,7 +48,7 @@ import { Client } from 'pg'
     else
       console.error(`Error 500 in ${req.method} ${req.path}:`, err)
     res.status(err.status || 500)
-    if (err.msg.code) // S3 error
+    if (err.msg && err.msg.code) // S3 error
       res.send(`Upstream error: ${err.msg.code}`)
     else res.send(err.msg)
     next()
