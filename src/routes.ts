@@ -3,6 +3,7 @@ import {Request, RequestHandler} from 'express'
 import {PutObjectRequest, GetObjectRequest} from 'aws-sdk/clients/s3'
 import * as crypto from 'crypto'
 import {Client} from 'pg'
+import config from './config'
 
 interface Params {
   bucket: string
@@ -18,23 +19,41 @@ export class Routes {
   readonly s3: S3
   readonly client: Client
   readonly S3_BAD_HASH_ERROR_CODE = 'BadDigest'
-  readonly PG_TABLE_NOT_FOUND = '42P01'
+
+  getCurrentPutBucket(bucket: string, bucketId: number) {
+    if (bucketId == 0 || bucket.includes('volatile')) return bucket
+    return `${bucket}-${bucketId}`
+  }
 
   putFile: RequestHandler = async (req, res, next) => {
     const params: Params = req.params as any
     const expectedChecksum = req.headers['content-md5'] as string | undefined
     if (!expectedChecksum) return next({status: 400, msg: 'Content-MD5 header is missing'})
 
-    const uploadParams: PutObjectRequest = {
-      Bucket: this.bucketToS3Format(params.bucket),
-      Key: params.key,
-      Body: req,
-      ContentType: req.headers['content-type'] || 'application/octet-stream'
-    }
-
     let managedUpload
+    let bucketId = 0
     try {
-      const exists = await this.s3ObjExists(params)
+      const nobjres = await this.client.query(`SELECT n_objects, bucket_id
+                                               FROM bucketstats
+                                               WHERE bucket = $1`, [this.bucketToS3Format(params.bucket)])
+      const nobjrow = nobjres.rows[0]
+      bucketId = nobjrow.bucket_id
+      if (nobjrow.n_objects >= config.maxObjectsPerBucket) {
+        const bucketidres = await this.client.query(`UPDATE bucketstats
+                                                     SET bucket_id = bucket_id + 1
+                                                     WHERE bucket = $1
+                                                     RETURNING bucket_id`, [this.bucketToS3Format(params.bucket)])
+        bucketId = bucketidres.rows[0].bucket_id
+      }
+
+      const uploadParams: PutObjectRequest = {
+        Bucket: this.getCurrentPutBucket(this.bucketToS3Format(params.bucket), bucketId),
+        Key: params.key,
+        Body: req,
+        ContentType: req.headers['content-type'] || 'application/octet-stream'
+      }
+
+      const exists = await this.s3ObjExists(params.bucket, params.key)
       managedUpload = this.s3.upload(uploadParams)
       const [, uploadRes] = await Promise.all([
         this.checkHash(req, expectedChecksum),
@@ -45,7 +64,12 @@ export class Routes {
       if (exists) {
         res.status(200)
       } else {
-        await this.client.query(`INSERT INTO ${params.bucket} (key, bucket_id) VALUES ($1, 0)`, [params.key])
+          await Promise.all([
+            this.client.query(`INSERT INTO ${params.bucket} (key, bucket_id) VALUES ($1, $2)`, [params.key, bucketId]),
+            this.client.query(`UPDATE bucketstats
+                               SET n_objects = n_objects + 1
+                               WHERE bucket = $1`, [this.bucketToS3Format(params.bucket)])
+          ])
         res.status(201)
       }
 
@@ -54,7 +78,7 @@ export class Routes {
       if (managedUpload) managedUpload.abort()
       if (err.status && err.msg) return next({status: err.status, msg: err.msg}) // Client error
       if (err.statusCode) return next({status: 502, msg: err}) // S3 error
-      return next({status: 500, msg: err}) // Internal error
+      return next(err) // Internal error
     }
   }
 
@@ -73,16 +97,23 @@ export class Routes {
   }
 
   deleteVolatileFile: RequestHandler = async (req, res, next) => {
-    const Params: GetObjectRequest = {
-      Bucket: req.params.bucket,
+    const params: Params = req.params as any
+    const deleteParams: GetObjectRequest = {
+      Bucket: this.bucketToS3Format(req.params.bucket),
       Key: req.params.key,
     }
     try {
-      await this.s3.deleteObject(Params).promise()
+      await this.s3.deleteObject(deleteParams).promise()
     }
     catch (err) {
       next({status: 502, msg: err})
     }
+    await Promise.all([
+      this.client.query(`DELETE FROM ${params.bucket} WHERE key = $1`, [req.params.key]),
+      this.client.query(`UPDATE bucketstats
+                               SET n_objects = n_objects - 1
+                               WHERE bucket = $1`, [this.bucketToS3Format(params.bucket)])
+    ])
     res.sendStatus(200)
   }
 
@@ -100,9 +131,9 @@ export class Routes {
     })
   }
 
-  private async s3ObjExists(params: Params) {
-    const res = await this.client.query(`SELECT bucket_id FROM ${params.bucket} WHERE key = $1`, [params.key])
-    if (res.rows.length == 0) return false
+  private async s3ObjExists(bucket: string, key: string) {
+    const {rows} = await this.client.query(`SELECT bucket_id FROM ${bucket} WHERE key = $1`, [key])
+    if (rows.length == 0) return false
     return true
   }
 
