@@ -88,7 +88,8 @@ describe('PUT /:bucket/:key', () => {
   })
 
   it('should change bucket after putting more than max object count objects', async () => {
-    await Promise.all([...Array(10).keys()].map(i => axios.put(`${validVersionedUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
+    await Promise.all([...Array(10).keys()].map(i =>
+      axios.put(`${validVersionedUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
     await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
     const {rows} = await client.query('SELECT * FROM "cloudnet-test-versioning" ORDER BY bucket_id DESC')
     expect(rows[0].bucket_id).toEqual(1)
@@ -97,7 +98,8 @@ describe('PUT /:bucket/:key', () => {
   })
 
   it('should not change bucket for volatile files', async () => {
-    await Promise.all([...Array(10).keys()].map(i => axios.put(`${validUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
+    await Promise.all([...Array(10).keys()].map(i =>
+      axios.put(`${validUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
     await axios.delete(`${validUrl}10`, validConfig)
     await axios.put(validUrl, fs.createReadStream(testdataPath), validConfig)
     const {rows} = await client.query('SELECT * FROM "cloudnet-test-volatile" ORDER BY bucket_id DESC LIMIT 2')
@@ -129,7 +131,7 @@ describe('PUT /:bucket/:key', () => {
   it('should respond with 404 if trying to put to invalid bucket', async () => {
     await expect(axios.put(`${url.slice(0, url.length - 2)}/asdf`, fs.createReadStream(testdataPath), validConfig))
       .rejects.toMatchObject({response: { status: 404 }})
-    return expect(axios.put(`http://localhost:5900/bucketstats/asdf`, fs.createReadStream(testdataPath), validConfig))
+    return expect(axios.put('http://localhost:5900/bucketstats/asdf', fs.createReadStream(testdataPath), validConfig))
       .rejects.toMatchObject({response: { status: 404 }})
   })
 })

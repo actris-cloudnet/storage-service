@@ -7,14 +7,14 @@ import {S3} from 'aws-sdk'
 import * as passport from 'passport'
 import {BasicStrategy} from 'passport-http'
 import * as crypto from 'crypto'
-import { Client } from 'pg'
+import {DB} from './db'
 
 (async function() {
   const port = config.port
   const app = express()
 
-  const client = new Client()
-  await client.connect()
+  const db = new DB()
+  await db.init()
 
   passport.use(new BasicStrategy((user: string, pw: string, done: Function) => {
     const pwHash = crypto.createHash('sha256').update(pw).digest('hex')
@@ -25,8 +25,8 @@ import { Client } from 'pg'
 
   const s3 = new S3(config.connection)
 
-  const routes = new Routes(s3, client)
-  const middleware = new Middleware(client)
+  const routes = new Routes(s3, db)
+  const middleware = new Middleware(db)
 
   app.put('/:bucket/*',
     passport.authenticate('basic', {session: false}),
