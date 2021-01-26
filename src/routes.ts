@@ -36,7 +36,7 @@ export class Routes {
     try {
       // eslint-disable-next-line prefer-const
       let {bucketId, objectCount} = await this.db.selectObjectCountAndBucketId(params.bucket)
-      if (objectCount >= config.maxObjectsPerBucket) {
+      if (objectCount >= config.maxObjectsPerBucket(params.bucket)) {
         bucketId = await this.db.increaseBucketId(params.bucket)
       }
       currentBucketId = bucketId
