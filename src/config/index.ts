@@ -4,8 +4,7 @@ import * as fs from 'fs'
 interface S3Config {
   connection: ClientConfiguration
   credentials: [{ user: string, pwHash: string }]
-  maxObjectsPerBucket: number
-  recountAfter: number
+  maxObjectsPerBucket: Function
   port: number
 }
 
@@ -21,12 +20,10 @@ const config: S3Config = {
   credentials: isProd
     ? readJSONFile('src/config/private/remote.credentials.json')
     : readJSONFile('src/config/local.credentials.json'),
-  maxObjectsPerBucket: isProd
-    ? 1900000
-    : 10,
-  recountAfter: isProd
-    ? 1000
-    : 10,
+  maxObjectsPerBucket: (bucket: string) =>
+    isProd
+      ? 1900000
+      : bucket.includes('test') ? 10 : 100000,
   port: 5900
 }
 
