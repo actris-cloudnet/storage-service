@@ -19,6 +19,10 @@ jobs:
     steps:
     - name: Add local bin to PATH
       run: export PATH=/usr/local/bin:$PATH
+    - name: Install Ubuntu dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install postgresql
     - name: Install nvm
       run: | 
           wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
@@ -30,7 +34,14 @@ jobs:
     - name: Use Python ${{ matrix.python-version }}
       uses: actions/setup-python@v1
       with:
-        python-version: ${{ matrix.python-version }} 
+        python-version: ${{ matrix.python-version }}
+    - name: Configure postgresql
+      run: |
+        sudo service postgresql start
+        sudo -u postgres createuser -d -r -s -w runner
+        sudo cat /etc/postgresql/13/main/pg_hba.conf|sed 's/md5/trust/' > pg_hba.tmp
+        sudo mv pg_hba.tmp /etc/postgresql/13/main/pg_hba.conf
+        sudo service postgresql restart
     - name: Symlink Python 3
       run: sudo ln -s `which python` /usr/local/bin/python3
     - name: Checkout  
