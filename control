@@ -36,8 +36,9 @@ case "$action" in
     pip3 install -r requirements.txt
     cd ..
     npx tsc --build tsconfig.json
-    psql ss < src/config/sql/createtable.sql
-    psql ss < src/config/sql/createtable-test.sql
+    createdb ss 2> /dev/null || true
+    psql ss < src/db/createtable.sql
+    psql ss < src/db/createtable-test.sql
     ;;
 
     test-start)

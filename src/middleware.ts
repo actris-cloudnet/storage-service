@@ -1,13 +1,13 @@
 import {RequestHandler} from 'express'
-import {Client} from 'pg'
+import {DB} from './db'
 
 export class Middleware {
 
-  constructor(client: Client) {
-    this.client = client
+  constructor(db: DB) {
+    this.db = db
   }
 
-  client: Client
+  db: DB
 
   validateDeleteBucket: RequestHandler = (req, _, next) => {
     const bucket = req.params.bucket
@@ -19,8 +19,7 @@ export class Middleware {
   validateParams: RequestHandler = async (req, _, next) => {
     const bucket = req.params.bucket
     if (!bucket.match(/^cloudnet-/)) return next({status: 404, msg: `Unknown bucket: ${bucket}`})
-    const {rows} = await this.client.query('SELECT to_regclass($1) as bucket', [bucket])
-    const validBucket = rows[0].bucket
+    const validBucket = await this.db.selectBucket(bucket)
     if (!validBucket) return next({status: 404, msg: `Unknown bucket: ${bucket}`})
     req.params.bucket = validBucket
     req.params.key = req.params[0]
