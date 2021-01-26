@@ -2,31 +2,28 @@ import {ClientConfiguration} from 'aws-sdk/clients/s3'
 import * as fs from 'fs'
 
 interface S3Config {
-  connection: ClientConfiguration,
-  buckets: string[],
-  credentials: [{ user: string, pwHash: string }],
+  connection: ClientConfiguration
+  credentials: [{ user: string, pwHash: string }]
+  maxObjectsPerBucket: Function
   port: number
 }
 
 const readJSONFile = (filepath: string) =>
   JSON.parse(fs.readFileSync(filepath).toString())
 
+const isProd = process.env.NODE_ENV == 'production'
 
 const config: S3Config = {
-  connection: (process.env.NODE_ENV == 'production')
+  connection: isProd
     ? readJSONFile('src/config/private/remote.connection.json')
     : readJSONFile('src/config/local.connection.json'),
-  buckets: [
-    'cloudnet-upload',
-    'cloudnet-product',
-    'cloudnet-product-volatile',
-    'cloudnet-img',
-    'test',
-    'test-versioning'
-  ],
-  credentials: (process.env.NODE_ENV == 'production')
+  credentials: isProd
     ? readJSONFile('src/config/private/remote.credentials.json')
     : readJSONFile('src/config/local.credentials.json'),
+  maxObjectsPerBucket: (bucket: string) =>
+    isProd
+      ? 1900000
+      : bucket.includes('test') ? 10 : 100000,
   port: 5900
 }
 

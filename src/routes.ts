@@ -2,30 +2,53 @@ import {S3, AWSError} from 'aws-sdk'
 import {Request, RequestHandler} from 'express'
 import {PutObjectRequest, GetObjectRequest} from 'aws-sdk/clients/s3'
 import * as crypto from 'crypto'
+import config from './config'
+import {DB} from './db'
+import {bucketToS3Format} from './lib'
 
+interface Params {
+  bucket: string
+  key: string
+}
 
 export class Routes {
-  constructor(s3: S3) {
+  constructor(s3: S3, db: DB) {
     this.s3 = s3
+    this.db = db
   }
 
   readonly s3: S3
+  readonly db: DB
   readonly S3_BAD_HASH_ERROR_CODE = 'BadDigest'
 
+  getCurrentPutBucket(bucket: string, bucketId: number) {
+    if (bucketId == 0 || bucket.includes('volatile')) return bucket
+    return `${bucket}-${bucketId}`
+  }
+
   putFile: RequestHandler = async (req, res, next) => {
+    const params: Params = req.params as any
     const expectedChecksum = req.headers['content-md5'] as string | undefined
     if (!expectedChecksum) return next({status: 400, msg: 'Content-MD5 header is missing'})
 
-    const uploadParams: PutObjectRequest = {
-      Bucket: req.params.bucket,
-      Key: req.params.key,
-      Body: req,
-      ContentType: req.headers['content-type'] || 'application/octet-stream'
-    }
-
     let managedUpload
+    let currentBucketId = 0
     try {
-      const exists = await this.s3ObjExists(uploadParams)
+      // eslint-disable-next-line prefer-const
+      let {bucketId, objectCount} = await this.db.selectObjectCountAndBucketId(params.bucket)
+      if (objectCount >= config.maxObjectsPerBucket(params.bucket)) {
+        bucketId = await this.db.increaseBucketId(params.bucket)
+      }
+      currentBucketId = bucketId
+
+      const uploadParams: PutObjectRequest = {
+        Bucket: this.getCurrentPutBucket(bucketToS3Format(params.bucket), currentBucketId),
+        Key: params.key,
+        Body: req,
+        ContentType: req.headers['content-type'] || 'application/octet-stream'
+      }
+
+      const exists = await this.db.objectExists(params.bucket, params.key)
       managedUpload = this.s3.upload(uploadParams)
       const [, uploadRes] = await Promise.all([
         this.checkHash(req, expectedChecksum),
@@ -36,20 +59,22 @@ export class Routes {
       if (exists) {
         res.status(200)
       } else {
+        await this.db.saveObject(params.bucket, currentBucketId, params.key)
         res.status(201)
       }
 
       return res.send({size, version: (uploadRes as any).VersionId})
     } catch (err) {
       if (managedUpload) managedUpload.abort()
-      if (err.status && err.msg) return next({status: err.status, msg: err.msg})
-      return next({status: 502, msg: err})
+      if (err.status && err.msg) return next({status: err.status, msg: err.msg}) // Client error
+      if (err.statusCode) return next({status: 502, msg: err}) // S3 error
+      return next(err) // Internal error
     }
   }
 
   getFile: RequestHandler = async (req, res, next) => {
     const downloadParams: GetObjectRequest = {
-      Bucket: req.params.bucket,
+      Bucket: bucketToS3Format(req.params.bucket),
       Key: req.params.key,
       VersionId: (req.query.version as string)
     }
@@ -62,16 +87,18 @@ export class Routes {
   }
 
   deleteVolatileFile: RequestHandler = async (req, res, next) => {
-    const Params: GetObjectRequest = {
-      Bucket: req.params.bucket,
+    const params: Params = req.params as any
+    const deleteParams: GetObjectRequest = {
+      Bucket: bucketToS3Format(req.params.bucket),
       Key: req.params.key,
     }
     try {
-      await this.s3.deleteObject(Params).promise()
+      await this.s3.deleteObject(deleteParams).promise()
     }
     catch (err) {
       next({status: 502, msg: err})
     }
+    await this.db.deleteObject(params.bucket, params.key)
     res.sendStatus(200)
   }
 
@@ -87,16 +114,6 @@ export class Routes {
         resolve()
       })
     })
-  }
-
-  private async s3ObjExists(params: PutObjectRequest) {
-    try {
-      await this.getSizeOfS3Obj(params)
-    } catch (e) {
-      if (e.statusCode == 404) return false
-      throw e
-    }
-    return true
   }
 
   private async getSizeOfS3Obj(params: PutObjectRequest) {

@@ -3,18 +3,17 @@ const AWS = require('aws-sdk')
 
 const s3 = new AWS.S3(JSON.parse(fs.readFileSync('src/config/local.connection.json').toString()))
 
-const bucket = 'test'
-const versionedBucket = 'test-versioning';
+const buckets = ['cloudnet-test-volatile', 'cloudnet-test-versioning', 'cloudnet-test-versioning-1'];
 
 (async () => {
   process.stdout.write('Initializing buckets... ')
   try {
-    await Promise.all([bucket, versionedBucket].map(bucket =>
+    await Promise.all(buckets.map(bucket =>
       s3.createBucket({Bucket: bucket}).promise()
     ))
   } catch (e) {} // eslint-disable-line no-empty
   const params = {
-    Bucket: versionedBucket,
+    Bucket: buckets[1],
     VersioningConfiguration: {
       MFADelete: 'Disabled',
       Status: 'Enabled'

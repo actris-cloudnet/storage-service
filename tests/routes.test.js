@@ -1,9 +1,10 @@
 const axios = require('axios')
 const fs = require('fs')
 const AWS = require('aws-sdk')
+const {Client} = require('pg')
 
-const bucket = 'test'
-const versionedBucket = 'test-versioning'
+const bucket = 'cloudnet-test-volatile'
+const versionedBucket = 'cloudnet-test-versioning'
 const url = `http://localhost:5900/${bucket}/`
 const versionedUrl = `http://localhost:5900/${versionedBucket}/`
 const key = 'testdata.txt'
@@ -22,11 +23,29 @@ const validConfig = {
 }
 
 const s3 = new AWS.S3(JSON.parse(fs.readFileSync('src/config/local.connection.json').toString()))
+let client
 
 const deleteExistingObjects = async () => {
+  await client.query('TRUNCATE TABLE "cloudnet-test-volatile"')
+  await client.query('TRUNCATE TABLE "cloudnet-test-versioning"')
+  await client.query('TRUNCATE TABLE bucketstats')
+  await client.query(`INSERT INTO bucketstats VALUES
+    ('cloudnet-test-volatile', 0, 0),
+    ('cloudnet-test-versioning', 0, 0)`)
   const {Contents} = await s3.listObjects({Bucket: bucket}).promise()
-  return Promise.all(Contents.map(content => s3.deleteObject({Bucket: bucket, Key: content.Key}).promise()))
+  await Promise.all(Contents.map(content => s3.deleteObject({Bucket: bucket, Key: content.Key}).promise()))
+  const res = await s3.listObjects({Bucket: versionedBucket}).promise()
+  return Promise.all(res.Contents.map(content => s3.deleteObject({Bucket: versionedBucket, Key: content.Key}).promise()))
 }
+
+beforeAll(async () => {
+  client = new Client()
+  return client.connect()
+})
+
+afterAll(async () => {
+  return client.end()
+})
 
 describe('PUT /:bucket/:key', () => {
   beforeEach(deleteExistingObjects)
@@ -34,7 +53,10 @@ describe('PUT /:bucket/:key', () => {
   it('should respond with 201 and file size when putting new file', async () => {
     await expect(axios.put(validUrl, fs.createReadStream(testdataPath), validConfig))
       .resolves.toMatchObject({status: 201, data: {size: 8}})
-    return expect(s3.headObject({Bucket: bucket, Key: key}).promise()).resolves.toBeTruthy()
+    await expect(s3.headObject({Bucket: bucket, Key: key}).promise()).resolves.toBeTruthy()
+    const {rows} = await client.query('SELECT bucket_id FROM "cloudnet-test-volatile"')
+    expect(rows).toHaveLength(1)
+    return expect(rows[0].bucket_id).toEqual(0)
   })
 
   it('should respond with 201 when putting files with path as key', async () => {
@@ -48,7 +70,10 @@ describe('PUT /:bucket/:key', () => {
     await axios.put(validUrl, fs.createReadStream(testdataPath), validConfig)
     await expect(axios.put(`${url}testdata.txt`, fs.createReadStream(testdataPath), validConfig))
       .resolves.toMatchObject({status: 200, data: {size: 8}})
-    return expect(s3.headObject({Bucket: bucket, Key: key}).promise()).resolves.toBeTruthy()
+    await expect(s3.headObject({Bucket: bucket, Key: key}).promise()).resolves.toBeTruthy()
+    const {rows} = await client.query('SELECT bucket_id FROM "cloudnet-test-volatile"')
+    expect(rows).toHaveLength(1)
+    return expect(rows[0].bucket_id).toEqual(0)
   })
 
   it('should respond with 200 and file version when putting files to versioned bucket', async () => {
@@ -56,7 +81,32 @@ describe('PUT /:bucket/:key', () => {
     const response = await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
     expect(response.status).toEqual(200)
     expect(response.data.version).toBeTruthy()
-    return expect(s3.headObject({Bucket: 'test-versioning', Key: key, VersionId: response.data.version}).promise()).resolves.toBeTruthy()
+    await expect(s3.headObject({Bucket: 'cloudnet-test-versioning', Key: key, VersionId: response.data.version}).promise()).resolves.toBeTruthy()
+    const {rows} = await client.query('SELECT bucket_id FROM "cloudnet-test-versioning"')
+    expect(rows).toHaveLength(1)
+    return expect(rows[0].bucket_id).toEqual(0)
+  })
+
+  it('should change bucket after putting more than max object count objects', async () => {
+    await Promise.all([...Array(10).keys()].map(i =>
+      axios.put(`${validVersionedUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
+    await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
+    const {rows} = await client.query('SELECT * FROM "cloudnet-test-versioning" ORDER BY bucket_id DESC')
+    expect(rows).toHaveLength(11)
+    expect(rows[0].bucket_id).toEqual(1)
+    expect(rows[1].bucket_id).toEqual(0)
+    return expect(s3.headObject({Bucket: 'cloudnet-test-versioning-1', Key: key}).promise()).resolves.toBeTruthy()
+  })
+
+  it('should not change bucket for volatile files', async () => {
+    await Promise.all([...Array(10).keys()].map(i =>
+      axios.put(`${validUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
+    await axios.delete(`${validUrl}10`, validConfig)
+    await axios.put(validUrl, fs.createReadStream(testdataPath), validConfig)
+    const {rows} = await client.query('SELECT * FROM "cloudnet-test-volatile" ORDER BY bucket_id DESC')
+    expect(rows[0].bucket_id).toEqual(0)
+    expect(rows[1].bucket_id).toEqual(0)
+    return expect(s3.headObject({Bucket: 'cloudnet-test-volatile', Key: key}).promise()).resolves.toBeTruthy()
   })
 
   it('should respond with 400 if content-md5 header is missing', async () => {
@@ -80,7 +130,9 @@ describe('PUT /:bucket/:key', () => {
   })
 
   it('should respond with 404 if trying to put to invalid bucket', async () => {
-    return expect(axios.put(`${url.slice(0, url.length - 2)}/asdf`, fs.createReadStream(testdataPath), validConfig))
+    await expect(axios.put(`${url.slice(0, url.length - 2)}/asdf`, fs.createReadStream(testdataPath), validConfig))
+      .rejects.toMatchObject({response: { status: 404 }})
+    return expect(axios.put('http://localhost:5900/bucketstats/asdf', fs.createReadStream(testdataPath), validConfig))
       .rejects.toMatchObject({response: { status: 404 }})
   })
 })
@@ -129,10 +181,10 @@ describe('DELETE /:bucket/:key', () => {
   })
 
   it('should respond with 200 when deleting file', async () => {
-    const url = `${validUrl}testdata.txt`
+    const url = `${validUrl}`
     await axios.put(url, fs.createReadStream(testdataPath), validConfig)
-    expect(axios.get(url, validConfig)).resolves.toMatchObject({ status: 200, data: 'content\n' })
-    expect(axios.delete(url, validConfig)).resolves.toMatchObject({ status: 200 })
+    await expect(axios.get(url, validConfig)).resolves.toMatchObject({ status: 200, data: 'content\n' })
+    await expect(axios.delete(url, validConfig)).resolves.toMatchObject({ status: 200 })
     return expect(axios.get(url, validConfig)).rejects.toMatchObject({ response: { status: 404 }})
   })
 

@@ -36,9 +36,13 @@ case "$action" in
     pip3 install -r requirements.txt
     cd ..
     npx tsc --build tsconfig.json
+    createdb ss 2> /dev/null || true
+    psql ss < src/db/createtable.sql
+    psql ss < src/db/createtable-test.sql
     ;;
 
     test-start)
+    export PGDATABASE="ss"
     source python/venv/bin/activate
     truncate --size 0 all.log
     nohup moto_server -p$motoport >> all.log 2>&1 &

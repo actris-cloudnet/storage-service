@@ -7,10 +7,14 @@ import {S3} from 'aws-sdk'
 import * as passport from 'passport'
 import {BasicStrategy} from 'passport-http'
 import * as crypto from 'crypto'
+import {DB} from './db'
 
 (async function() {
   const port = config.port
   const app = express()
+
+  const db = new DB()
+  await db.init()
 
   passport.use(new BasicStrategy((user: string, pw: string, done: Function) => {
     const pwHash = crypto.createHash('sha256').update(pw).digest('hex')
@@ -21,8 +25,8 @@ import * as crypto from 'crypto'
 
   const s3 = new S3(config.connection)
 
-  const routes = new Routes(s3)
-  const middleware = new Middleware()
+  const routes = new Routes(s3, db)
+  const middleware = new Middleware(db)
 
   app.put('/:bucket/*',
     passport.authenticate('basic', {session: false}),
@@ -34,8 +38,8 @@ import * as crypto from 'crypto'
     routes.getFile)
   app.delete('/:bucket/*',
     passport.authenticate('basic', {session: false}),
-    middleware.validateParams,
     middleware.validateDeleteBucket,
+    middleware.validateParams,
     routes.deleteVolatileFile)
 
   const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
@@ -44,7 +48,7 @@ import * as crypto from 'crypto'
     else
       console.error(`Error 500 in ${req.method} ${req.path}:`, err)
     res.status(err.status || 500)
-    if (err.msg.code) // S3 error
+    if (err.msg && err.msg.code) // S3 error
       res.send(`Upstream error: ${err.msg.code}`)
     else res.send(err.msg)
     next()
