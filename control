@@ -38,9 +38,7 @@ case "$action" in
     pip3 install -r requirements.txt
     cd ..
     npx tsc --build tsconfig.json
-    createdb ss 2> /dev/null || true
-    psql ss < src/db/createtable.sql
-    psql ss < src/db/createtable-test.sql
+    ./control reset-db
     ;;
 
     test-start)
@@ -75,6 +73,25 @@ case "$action" in
     dev-restart)
     ./control dev-stop
     ./control dev-start $mode
+    ;;
+
+    dev-fetch-and-start)
+    ./control fetch-remote-db
+    ./control dev-start remote
+    ;;
+
+    fetch-remote-db)
+    echo "Fetching remote db..."
+    dropdb ss 2> /dev/null || true
+    createdb ss
+    ssh -C cloudnet@altocumulus.fmi.fi "pg_dump ss" | psql ss
+    ;;
+
+    reset-db)
+    dropdb ss || true
+    createdb ss
+    psql ss < src/db/createtable.sql
+    psql ss < src/db/createtable-test.sql
     ;;
 
     *)
