@@ -6,6 +6,8 @@ if [ -z $1 ]; then
     exit 1
 fi
 
+
+mode=$2
 action=$1
 nodeport=5900
 motoport=5901
@@ -42,18 +44,25 @@ case "$action" in
     ;;
 
     test-start)
+    if [ -z $mode ]; then
+        echo "Mode not specified. Must be 'local' or 'remote'"
+        exit 1
+    fi
     export PGDATABASE="ss"
+    export SS_MODE="$mode"
     source python/venv/bin/activate
     truncate --size 0 all.log
     nohup moto_server -p$motoport >> all.log 2>&1 &
     waitport $motoport
     nohup npm start >> all.log 2>&1 &
-    node init.js
+    if [ "$mode" == "local" ]; then
+      node init.js
+    fi
     waitport $nodeport || (tail -n100 all.log && false)
     ;;
 
     dev-start)
-    ./control test-start
+    ./control test-start $mode
     tail -fn100 all.log
     ;;
 
@@ -65,7 +74,7 @@ case "$action" in
 
     dev-restart)
     ./control dev-stop
-    ./control dev-start
+    ./control dev-start $mode
     ;;
 
     *)
