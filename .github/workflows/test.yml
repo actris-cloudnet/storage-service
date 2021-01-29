@@ -60,7 +60,7 @@ jobs:
       run: |
           . ~/.nvm/nvm.sh
           nvm use v10
-          ./control test-start
+          ./control test-start local
     - name: Run tests
       run: |
         . ~/.nvm/nvm.sh
