@@ -71,7 +71,7 @@ export class Routes {
     const params: Params = req.params as any
     try {
       const {bucketId} = await this.db.selectBucketId(params.bucket, params.key)
-      if (bucketId === undefined) return next({status: 404, msg: 'File not found'})
+      if (bucketId === null) return next({status: 404, msg: 'File not found'})
       const bucket = this.getFullBucketName(params.bucket, bucketId)
 
       const downloadParams: GetObjectRequest = {
