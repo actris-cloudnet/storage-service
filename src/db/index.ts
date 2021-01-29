@@ -20,7 +20,6 @@ export class DB {
        WHERE bucket = $1`,
       [bucketToS3Format(bucket)])
     return {objectCount: n_objects, bucketId: bucket_id}
-
   }
 
   async increaseBucketId(bucket: string) {
@@ -44,6 +43,15 @@ export class DB {
          WHERE bucket = $1`,
         [bucketToS3Format(bucket)])
     ])
+  }
+
+  async selectBucketId(bucket: string, key: string) {
+    const res = await this.queryOne(
+      `SELECT bucket_id
+       FROM ${bucket}
+       WHERE key = $1`,
+      [key])
+    return {bucketId: res ? res.bucket_id : null}
   }
 
   async deleteObject(bucket: string, key: string) {

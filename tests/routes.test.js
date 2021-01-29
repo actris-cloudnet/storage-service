@@ -151,6 +151,16 @@ describe('GET /:bucket/:key', () => {
     return expect(axios.get(`${url}${key}`, {auth: validConfig.auth})).resolves.toMatchObject({ status: 200, data: 'content\n' })
   })
 
+  it('should respond with 200 and file contents when getting file from a partitioned bucket', async () => {
+    await Promise.all([...Array(10).keys()].map(i =>
+      axios.put(`${validVersionedUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
+    await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
+    return expect(axios.get(validVersionedUrl, {auth: validConfig.auth})).resolves.toMatchObject({
+      status: 200,
+      data: 'content\n'
+    })
+  })
+
   it('should respond with 200 and file contents when getting older version of file', async () => {
     const response = await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
     const axiosPutConf = {headers: {'Content-MD5': '/tsthMr+IIYstDmXUain4w=='}, auth: validConfig.auth}

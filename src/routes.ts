@@ -21,11 +21,6 @@ export class Routes {
   readonly db: DB
   readonly S3_BAD_HASH_ERROR_CODE = 'BadDigest'
 
-  getCurrentPutBucket(bucket: string, bucketId: number) {
-    if (bucketId == 0 || bucket.includes('volatile')) return bucket
-    return `${bucket}-${bucketId}`
-  }
-
   putFile: RequestHandler = async (req, res, next) => {
     const params: Params = req.params as any
     const expectedChecksum = req.headers['content-md5'] as string | undefined
@@ -42,7 +37,7 @@ export class Routes {
       currentBucketId = bucketId
 
       const uploadParams: PutObjectRequest = {
-        Bucket: this.getCurrentPutBucket(bucketToS3Format(params.bucket), currentBucketId),
+        Bucket: this.getFullBucketName(bucketToS3Format(params.bucket), currentBucketId),
         Key: params.key,
         Body: req,
         ContentType: req.headers['content-type'] || 'application/octet-stream'
@@ -73,17 +68,28 @@ export class Routes {
   }
 
   getFile: RequestHandler = async (req, res, next) => {
-    const downloadParams: GetObjectRequest = {
-      Bucket: bucketToS3Format(req.params.bucket),
-      Key: req.params.key,
-      VersionId: (req.query.version as string)
-    }
-    const objStream = this.s3.getObject(downloadParams).createReadStream()
-    objStream.on('error', (err: AWSError) => {
-      if (err.statusCode == 404) return next({status: 404, msg: 'Not found'})
-      next({status: 502, msg: err})
-    })
+    const params: Params = req.params as any
+    try {
+      const {bucketId} = await this.db.selectBucketId(params.bucket, params.key)
+      if (bucketId === undefined) return next({status: 404, msg: 'File not found'})
+      const bucket = this.getFullBucketName(params.bucket, bucketId)
+
+      const downloadParams: GetObjectRequest = {
+        Bucket: bucketToS3Format(bucket),
+        Key: params.key,
+        VersionId: (req.query.version as string)
+      }
+
+      const objStream = this.s3.getObject(downloadParams).createReadStream()
+      objStream.on('error', (err: AWSError) => {
+        if (err.statusCode == 404) return next({status: 404, msg: 'Version not found'})
+        return next({status: 502, msg: err})
+      })
       .pipe(res)
+    }
+    catch (err) {
+      next(err)
+    }
   }
 
   deleteVolatileFile: RequestHandler = async (req, res, next) => {
@@ -121,4 +127,10 @@ export class Routes {
       .promise()
       .then(res => res.ContentLength)
   }
+
+  private getFullBucketName(bucket: string, bucketId: number) {
+    if (bucketId == 0) return bucket
+    return `${bucket}-${bucketId}`
+  }
+
 }
