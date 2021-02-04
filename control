@@ -45,6 +45,9 @@ case "$action" in
         echo "Mode not specified. Must be 'local' or 'remote'"
         exit 1
     fi
+    if [ "$mode" == "remote" ]; then
+      git-crypt unlock
+    fi
     export PGDATABASE="ss"
     export SS_MODE="$mode"
     source python/venv/bin/activate
