@@ -55,6 +55,6 @@ import {DB} from './db'
   }
   app.use(errorHandler)
 
-  app.listen(port, () => console.log(`App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}`))
+  app.listen(port, () => console.log(`App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}, SS_MODE=${process.env.SS_MODE}`))
 
 })()
