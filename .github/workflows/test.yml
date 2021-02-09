@@ -50,7 +50,7 @@ jobs:
       run: |
           . ~/.nvm/nvm.sh
           nvm use v10
-          ./control dev-install
+          ./control install
     - name: Build project
       run: |
         . ~/.nvm/nvm.sh

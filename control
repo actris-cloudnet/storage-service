@@ -29,7 +29,7 @@ waitport () {
 }
 
 case "$action" in
-    dev-install)
+    install)
     npm install
     cd python
     python3 -m venv venv
@@ -61,23 +61,23 @@ case "$action" in
     waitport $nodeport || (tail -n100 all.log && false)
     ;;
 
-    dev-start)
+    start)
     ./control test-start $mode
     tail -fn100 all.log
     ;;
 
-    dev-stop)
+    stop)
     set +e
     kill "$(lsof -t -i:$motoport)"
     kill "$(lsof -t -i:$nodeport)"
     ;;
 
-    dev-restart)
+    restart)
     ./control dev-stop
     ./control dev-start $mode
     ;;
 
-    dev-fetch-and-start)
+    fetch-and-start)
     ./control fetch-remote-db
     ./control dev-start remote
     ;;
