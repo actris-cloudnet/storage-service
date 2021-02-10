@@ -45,18 +45,19 @@ case "$action" in
         echo "Mode not specified. Must be 'local' or 'remote'"
         exit 1
     fi
-    if [ "$mode" == "remote" ]; then
-      git-crypt unlock
-    fi
     export PGDATABASE="ss"
     export SS_MODE="$mode"
     source python/venv/bin/activate
     truncate --size 0 all.log
-    nohup moto_server -p$motoport >> all.log 2>&1 &
-    waitport $motoport
+    if [ "$mode" == "remote" ]; then
+        git-crypt unlock
+    else
+        nohup moto_server -p$motoport >> all.log 2>&1 &
+        waitport $motoport
+    fi
     nohup npm start >> all.log 2>&1 &
     if [ "$mode" == "local" ]; then
-      node init.js
+        node init.js
     fi
     waitport $nodeport || (tail -n100 all.log && false)
     ;;
