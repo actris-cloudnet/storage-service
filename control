@@ -80,7 +80,7 @@ case "$action" in
 
     fetch-and-start)
     ./control fetch-remote-db
-    ./control dev-start remote
+    ./control start remote
     ;;
 
     fetch-remote-db)
