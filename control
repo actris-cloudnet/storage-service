@@ -74,8 +74,8 @@ case "$action" in
     ;;
 
     restart)
-    ./control dev-stop
-    ./control dev-start $mode
+    ./control stop
+    ./control start $mode
     ;;
 
     fetch-and-start)
