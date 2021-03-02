@@ -5,9 +5,10 @@
   "main": "build/server.js",
   "scripts": {
     "test": "export PGDATABASE='ss' && jest",
-    "start": "nodemon --watch 'src/**/*.ts' --ignore 'src/**/*.spec.ts' --exec 'npx ts-node --pretty' src/server.ts",
+    "start": "nodemon --watch 'src/**/*.ts' --ignore 'src/**/*.spec.ts' --exec 'npx ts-node --pretty -T' src/server.ts",
     "lint": "eslint . --ext .js,.ts",
-    "lint-fix": "eslint . --ext .js,.ts --fix"
+    "lint-fix": "eslint . --ext .js,.ts --fix",
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
