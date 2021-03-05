@@ -1,16 +1,11 @@
 # storage-service
 
-## Commands
+See the README of the docker-common repository on how to set up the CLU development environment.
 
-- `./control start remote` to use the S3 `remote-ro` mode.
-- `./control start local` to use the S3 mock (e.g. previous `./control dev-start` functionality)
-- `./control fetch-remote-db` fetches remote db.
-- `./control fetch-and-start` fetches remote db and starts SS in `remote-ro` mode.
-- `./control reset-db` resets the database (i.e. removes everything).
+When you have the environment running, you can run commands inside the container with `./run`.
+For instance, to run tests you can issue:
 
-Additionally,
-
-    ./control install
-    ./control stop
-    ./control restart
+```shell
+./run npm test
+```
 
