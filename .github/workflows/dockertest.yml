@@ -1,6 +1,5 @@
-name: Dockertest
-on:
-  push: { branches: docker }
+name: Test
+on: [push]
 
 jobs:
   test:
