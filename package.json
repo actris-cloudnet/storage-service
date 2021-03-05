@@ -4,8 +4,9 @@
   "description": "",
   "main": "build/server.js",
   "scripts": {
-    "test": "export PGDATABASE='ss' && jest",
-    "start": "nodemon --watch 'src/**/*.ts' --ignore 'src/**/*.spec.ts' --exec 'npx ts-node --pretty -T' src/server.ts",
+    "test": "jest",
+    "start": "node init.js && node build/server.js",
+    "start-dev": "node init.js && nodemon --watch 'src/**/*.ts' --ignore 'src/**/*.spec.ts' --exec 'npx ts-node --pretty -T' src/server.ts",
     "lint": "eslint . --ext .js,.ts",
     "lint-fix": "eslint . --ext .js,.ts --fix",
     "build": "tsc"

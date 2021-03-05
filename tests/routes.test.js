@@ -5,8 +5,9 @@ const {Client} = require('pg')
 
 const bucket = 'cloudnet-test-volatile'
 const versionedBucket = 'cloudnet-test-versioning'
-const url = `http://localhost:5900/${bucket}/`
-const versionedUrl = `http://localhost:5900/${versionedBucket}/`
+const baseUrl = 'http://storage-service:5900'
+const url = `${baseUrl}/${bucket}/`
+const versionedUrl = `${baseUrl}/${versionedBucket}/`
 const key = 'testdata.txt'
 const validUrl = `${url}${key}`
 const validVersionedUrl = `${versionedUrl}${key}`
@@ -132,7 +133,7 @@ describe('PUT /:bucket/:key', () => {
   it('should respond with 404 if trying to put to invalid bucket', async () => {
     await expect(axios.put(`${url.slice(0, url.length - 2)}/asdf`, fs.createReadStream(testdataPath), validConfig))
       .rejects.toMatchObject({response: { status: 404 }})
-    return expect(axios.put('http://localhost:5900/bucketstats/asdf', fs.createReadStream(testdataPath), validConfig))
+    return expect(axios.put(`${baseUrl}/bucketstats/asdf`, fs.createReadStream(testdataPath), validConfig))
       .rejects.toMatchObject({response: { status: 404 }})
   })
 })
