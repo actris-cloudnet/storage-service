@@ -4,7 +4,8 @@ const Client = require('pg').Client
 
 const s3 = new AWS.S3(JSON.parse(fs.readFileSync('src/config/local.connection.json').toString()))
 
-const buckets = ['cloudnet-test-volatile', 'cloudnet-test-versioning', 'cloudnet-test-versioning-1'];
+const buckets = ['cloudnet-test-volatile', 'cloudnet-test-versioning', 'cloudnet-test-versioning-1',
+  'cloudnet-product-volatile', 'cloudnet-product', 'cloudnet-img', 'cloudnet-upload'];
 
 (async () => {
   if (process.env.NODE_ENV == 'production' || process.env.SS_MODE != 'local') {
@@ -18,13 +19,15 @@ const buckets = ['cloudnet-test-volatile', 'cloudnet-test-versioning', 'cloudnet
       s3.createBucket({Bucket: bucket}).promise()
     ))
   } catch (e) {} // eslint-disable-line no-empty
-  const params = {
+  let params = {
     Bucket: buckets[1],
     VersioningConfiguration: {
       MFADelete: 'Disabled',
       Status: 'Enabled'
     }
   }
+  await s3.putBucketVersioning(params).promise()
+  params.Bucket = buckets[4]
   await s3.putBucketVersioning(params).promise()
   console.log('OK')
 
