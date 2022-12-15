@@ -1,7 +1,7 @@
-const axios = require('axios')
-const fs = require('fs')
-const AWS = require('aws-sdk')
-const {Client} = require('pg')
+import axios from 'axios'
+import * as fs from 'fs'
+import * as AWS from 'aws-sdk'
+import {Client} from 'pg'
 
 const bucket = 'cloudnet-test-volatile'
 const versionedBucket = 'cloudnet-test-versioning'
@@ -24,7 +24,7 @@ const validConfig = {
 }
 
 const s3 = new AWS.S3(JSON.parse(fs.readFileSync('src/config/local.connection.json').toString()))
-let client
+let client: Client
 
 const deleteExistingObjects = async () => {
   await client.query('TRUNCATE TABLE "cloudnet-test-volatile"')
@@ -34,9 +34,9 @@ const deleteExistingObjects = async () => {
     ('cloudnet-test-volatile', 0, 0),
     ('cloudnet-test-versioning', 0, 0)`)
   const {Contents} = await s3.listObjects({Bucket: bucket}).promise()
-  await Promise.all(Contents.map(content => s3.deleteObject({Bucket: bucket, Key: content.Key}).promise()))
+  await Promise.all(Contents!.map(content => s3.deleteObject({Bucket: bucket, Key: content.Key!}).promise()))
   const res = await s3.listObjects({Bucket: versionedBucket}).promise()
-  return Promise.all(res.Contents.map(content => s3.deleteObject({Bucket: versionedBucket, Key: content.Key}).promise()))
+  return Promise.all(res.Contents!.map(content => s3.deleteObject({Bucket: versionedBucket, Key: content.Key!}).promise()))
 }
 
 beforeAll(async () => {
@@ -89,7 +89,7 @@ describe('PUT /:bucket/:key', () => {
   })
 
   it('should change bucket after putting more than max object count objects', async () => {
-    await Promise.all([...Array(10).keys()].map(i =>
+    await Promise.all(Array.from({ length: 10 }, (v, i) =>
       axios.put(`${validVersionedUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
     await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
     const {rows} = await client.query('SELECT * FROM "cloudnet-test-versioning" ORDER BY bucket_id DESC')
@@ -100,7 +100,7 @@ describe('PUT /:bucket/:key', () => {
   })
 
   it('should put all versions of a file to same bucket', async () => {
-    await Promise.all([...Array(10).keys()].map(i =>
+    await Promise.all(Array.from({ length: 10 }, (v, i) =>
       axios.put(`${validVersionedUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
     const {data} = await axios.put(`${validVersionedUrl}0`, fs.createReadStream(testdataPath), validConfig)
     expect(data.version).toBeTruthy()
@@ -109,7 +109,7 @@ describe('PUT /:bucket/:key', () => {
   })
 
   it('should not change bucket for volatile files', async () => {
-    await Promise.all([...Array(10).keys()].map(i =>
+    await Promise.all(Array.from({ length: 10 }, (v, i) =>
       axios.put(`${validUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
     await axios.delete(`${validUrl}10`, validConfig)
     await axios.put(validUrl, fs.createReadStream(testdataPath), validConfig)
@@ -133,7 +133,7 @@ describe('PUT /:bucket/:key', () => {
   })
 
   it('should respond with 401 if auth is invalid', async () => {
-    const invalidConfig = {...validConfig, ...{auth: {'userame': 'test', 'password':'kissa'}}}
+    const invalidConfig = {...validConfig, ...{auth: {'username': 'test', 'password':'kissa'}}}
     await expect(axios.put(validUrl, fs.createReadStream(testdataPath), invalidConfig))
       .rejects.toMatchObject({response: { status: 401 }})
     return expect(s3.headObject({Bucket: bucket, Key: key}).promise()).rejects.toBeTruthy()
@@ -162,7 +162,7 @@ describe('GET /:bucket/:key', () => {
   })
 
   it('should respond with 200 and file contents when getting file from a partitioned bucket', async () => {
-    await Promise.all([...Array(10).keys()].map(i =>
+    await Promise.all(Array.from({ length: 10 }, (v, i) =>
       axios.put(`${validVersionedUrl}${i}`, fs.createReadStream(testdataPath), validConfig)))
     await axios.put(validVersionedUrl, fs.createReadStream(testdataPath), validConfig)
     return expect(axios.get(validVersionedUrl, {auth: validConfig.auth})).resolves.toMatchObject({

@@ -1,6 +1,6 @@
-const fs = require('fs')
-const AWS = require('aws-sdk')
-const Client = require('pg').Client
+import * as fs from 'fs'
+import * as AWS from 'aws-sdk'
+import {Client} from 'pg'
 
 const s3 = new AWS.S3(JSON.parse(fs.readFileSync('src/config/local.connection.json').toString()))
 
@@ -18,8 +18,10 @@ const buckets = ['cloudnet-test-volatile', 'cloudnet-test-versioning', 'cloudnet
     await Promise.all(buckets.map(bucket =>
       s3.createBucket({Bucket: bucket}).promise()
     ))
-  } catch (e) {} // eslint-disable-line no-empty
-  let params = {
+  } catch (e) {
+    console.error("Failed to create buckets", e)
+  }
+  const params = {
     Bucket: buckets[1],
     VersioningConfiguration: {
       MFADelete: 'Disabled',

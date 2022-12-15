@@ -4,7 +4,7 @@ import * as fs from 'fs'
 interface S3Config {
   connection: ClientConfiguration
   credentials: [{ user: string, pwHash: string }]
-  maxObjectsPerBucket: Function
+  maxObjectsPerBucket: (bucket: string) => number
   port: number
 }
 
@@ -29,10 +29,11 @@ const config: S3Config = {
       pwHash: process.env.SS_PWHASH
     }]
     : readJSONFile('src/config/local.credentials.json'),
-  maxObjectsPerBucket: (bucket: string) =>
-    isProd
-      ? process.env.SS_MAXOBJECTSPERBUCKET
-      : bucket.includes('test') ? 10 : 100000,
+  maxObjectsPerBucket: isProd ? (bucket) => {
+    const maxValue = process.env.SS_MAXOBJECTSPERBUCKET
+    if (!maxValue) throw new Error(`Invalid SS_MAXOBJECTSPERBUCKET: ${maxValue}`)
+    return parseInt(maxValue, 10)
+  } : (bucket) => bucket.includes('test') ? 10 : 100000,
   port: 5900
 }
 

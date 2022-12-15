@@ -16,7 +16,7 @@ import {DB} from './db'
   const db = new DB()
   await db.init()
 
-  passport.use(new BasicStrategy((user: string, pw: string, done: Function) => {
+  passport.use(new BasicStrategy((user, pw, done) => {
     const pwHash = crypto.createHash('sha256').update(pw).digest('hex')
     const validCredentials = config.credentials.filter(cred => cred.user == user)[0]
     if (!validCredentials || pwHash != validCredentials.pwHash) return done(null, false)

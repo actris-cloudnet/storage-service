@@ -62,7 +62,7 @@ export class Routes {
       }
 
       return res.send({size, version: (uploadRes as any).VersionId})
-    } catch (err) {
+    } catch (err: any) {
       if (managedUpload) managedUpload.abort()
       if (err.status && err.msg) return next({status: err.status, msg: err.msg}) // Client error
       if (err.statusCode) return next({status: 502, msg: err}) // S3 error
@@ -90,7 +90,7 @@ export class Routes {
       })
         .pipe(res)
     }
-    catch (err) {
+    catch (err: any) {
       next(err)
     }
   }
@@ -104,14 +104,14 @@ export class Routes {
     try {
       await this.s3.deleteObject(deleteParams).promise()
     }
-    catch (err) {
+    catch (err: any) {
       next({status: 502, msg: err})
     }
     await this.db.deleteObject(params.bucket, params.key)
     res.sendStatus(200)
   }
 
-  private checkHash(req: Request, expectedChecksum: string) {
+  private checkHash(req: Request, expectedChecksum: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const hash = crypto.createHash('md5')
       req.on('data', data => hash.update(data))
