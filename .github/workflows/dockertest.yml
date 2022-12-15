@@ -9,14 +9,14 @@ jobs:
       COMPOSE_FILE: .github/docker-compose.yml
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Build docker images
-      run: docker-compose build
+      - name: Build docker images
+        run: docker-compose build
 
-    - name: Run tests
-      run: docker-compose run test
+      - name: Run tests
+        run: docker-compose run test
 
-    - name: Lint
-      run: docker-compose run lint
+      - name: Lint
+        run: docker-compose run lint

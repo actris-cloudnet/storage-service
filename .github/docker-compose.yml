@@ -8,9 +8,9 @@ services:
       POSTGRES_PASSWORD: dev
       PGUSER: ss
     healthcheck:
-     test: ["CMD", "psql", "-c", "select 1"]
-     interval: 1s
-     retries: 120
+      test: ["CMD", "psql", "-c", "select 1"]
+      interval: 1s
+      retries: 120
   moto-server:
     image: "motoserver/moto"
   storage-service:
@@ -30,7 +30,13 @@ services:
       - PGHOST=db
       - PGDATABASE=ss
     healthcheck:
-      test: ["CMD", "node", "-e", "const c=new require('net').Socket();c.connect(5900);c.on('connect',()=>process.exit(0))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const c=new require('net').Socket();c.connect(5900);c.on('connect',()=>process.exit(0))",
+        ]
       interval: 1s
       retries: 20
     command: ["npm", "start"]
