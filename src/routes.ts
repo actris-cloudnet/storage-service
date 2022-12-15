@@ -134,10 +134,11 @@ export class Routes {
       req.on("data", (data) => hash.update(data));
       req.on("end", () => {
         const checksum = hash.digest("base64");
-        if (checksum != expectedChecksum) {
+        if (checksum === expectedChecksum) {
+          resolve();
+        } else {
           reject({ status: 400, msg: "Checksum does not match file contents" });
         }
-        resolve();
       });
     });
   }
