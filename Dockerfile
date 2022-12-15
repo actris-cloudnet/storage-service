@@ -1,14 +1,14 @@
-FROM node:14 AS dev
+FROM node:18 AS dev
 WORKDIR /app
 
-FROM node:14 AS builder
+FROM node:18 AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . ./
 RUN npm run build
 
-FROM node:14 AS prod
+FROM node:18 AS prod
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/package*.json ./
