@@ -17,7 +17,7 @@ services:
     image: storage-service
     build:
       context: ../
-      target: dev
+      target: builder
     depends_on:
       db:
         condition: service_healthy

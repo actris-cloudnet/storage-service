@@ -1,20 +1,18 @@
 FROM node:14 AS dev
-
 WORKDIR /app
 
-COPY . /app
-
+FROM node:14 AS builder
+WORKDIR /app
+COPY package*.json ./
 RUN npm ci
+COPY . ./
 RUN npm run build
 
 FROM node:14 AS prod
-
 WORKDIR /app
-
-COPY --from=dev /app/package* /app/
-RUN npm ci --only=prod
-COPY --from=dev /app/build /app/build
-
+ENV NODE_ENV=production
+COPY --from=builder /app/package*.json ./
+RUN npm ci
+COPY --from=builder /app/build ./build
 EXPOSE 5900/tcp
-
 CMD ["node", "build/server.js"]
