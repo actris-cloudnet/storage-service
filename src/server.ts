@@ -8,10 +8,16 @@ import * as passport from "passport";
 import { BasicStrategy } from "passport-http";
 import * as crypto from "crypto";
 import { DB } from "./db";
+import pinoHttp from "pino-http";
 
 (async function () {
   const port = config.port;
   const app = express();
+
+  const httpLogger = pinoHttp({
+    redact: ["req.headers.authorization"],
+  });
+  app.use(httpLogger);
 
   const db = new DB();
   await db.init();
