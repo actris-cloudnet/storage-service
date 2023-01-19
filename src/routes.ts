@@ -1,9 +1,10 @@
 import {
+  CompleteMultipartUploadCommandOutput,
   GetObjectCommand,
   HeadObjectCommand,
-  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { AbortController } from "@aws-sdk/abort-controller";
 import { RequestHandler } from "express";
 import * as crypto from "crypto";
@@ -60,19 +61,21 @@ export class Routes {
         currentBucketId
       );
 
-      const stream1 = req.pipe(new PassThrough());
-      const stream2 = req.pipe(new PassThrough());
-
-      const uploadCmd = new PutObjectCommand({
-        Bucket: bucketName,
-        Key: params.key,
-        Body: stream1,
-        ContentType: req.headers["content-type"] || "application/octet-stream",
+      const multipartUpload = new Upload({
+        client: this.s3,
+        params: {
+          Bucket: bucketName,
+          Key: params.key,
+          Body: req,
+          ContentType:
+            req.headers["content-type"] || "application/octet-stream",
+        },
+        abortController: uploadAbort,
       });
 
       const [, uploadRes] = await Promise.all([
-        this.checkHash(stream2, expectedChecksum),
-        this.s3.send(uploadCmd, { abortSignal: uploadAbort.signal }),
+        this.checkHash(req, expectedChecksum),
+        multipartUpload.done(),
       ]);
       const size = await this.getSizeOfS3Obj(params.key, bucketName);
 
@@ -83,7 +86,10 @@ export class Routes {
         res.status(201);
       }
 
-      return res.send({ size, version: uploadRes.VersionId });
+      return res.send({
+        size,
+        version: (uploadRes as CompleteMultipartUploadCommandOutput).VersionId,
+      });
     } catch (err: any) {
       uploadAbort.abort();
       if (err.status && err.msg)
