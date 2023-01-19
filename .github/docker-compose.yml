@@ -12,7 +12,7 @@ services:
       interval: 1s
       retries: 120
   moto-server:
-    image: "motoserver/moto"
+    image: "motoserver/moto:3.0.1"
   storage-service:
     image: storage-service
     build:
