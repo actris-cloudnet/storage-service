@@ -1,8 +1,8 @@
-import { ClientConfiguration } from "aws-sdk/clients/s3";
+import { S3ClientConfig } from "@aws-sdk/client-s3";
 import * as fs from "fs";
 
 interface S3Config {
-  connection: ClientConfiguration;
+  connection: S3ClientConfig;
   credentials: [{ user: string; pwHash: string }];
   maxObjectsPerBucket: (bucket: string) => number;
   port: number;
@@ -19,9 +19,11 @@ const config: S3Config = {
     isProd || isRemote
       ? {
           endpoint: process.env.S3_ENDPOINT,
-          accessKeyId: process.env.S3_ACCESSKEYID,
-          secretAccessKey: process.env.S3_SECRETACCESSKEY,
-          computeChecksums: true,
+          credentials: {
+            accessKeyId: process.env.S3_ACCESSKEYID,
+            secretAccessKey: process.env.S3_SECRETACCESSKEY,
+          },
+          region: "EU",
         }
       : readJSONFile("src/config/local.connection.json"),
   credentials: isProd

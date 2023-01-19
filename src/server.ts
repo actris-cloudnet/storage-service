@@ -3,7 +3,7 @@ import config from "./config";
 import { Routes } from "./routes";
 import { ErrorRequestHandler } from "express";
 import { Middleware } from "./middleware";
-import { S3 } from "aws-sdk";
+import { S3Client } from "@aws-sdk/client-s3";
 import * as passport from "passport";
 import { BasicStrategy } from "passport-http";
 import * as crypto from "crypto";
@@ -34,7 +34,7 @@ import pinoHttp from "pino-http";
     })
   );
 
-  const s3 = new S3(config.connection);
+  const s3 = new S3Client(config.connection);
 
   const routes = new Routes(s3, db);
   const middleware = new Middleware(db);
@@ -66,12 +66,15 @@ import pinoHttp from "pino-http";
         JSON.stringify(err, null, 2)
       );
     else console.error(`Error 500 in ${req.method} ${req.path}:`, err);
-    res.status(err.status || 500);
-    if (err.msg && err.msg.code)
-      // S3 error
-      res.send(`Upstream error: ${err.msg.code}`);
-    else res.send(err.msg);
-    next();
+    if (res.headersSent) {
+      res.end();
+    } else {
+      res.status(err.status || 500);
+      if (err.msg && err.msg.code)
+        // S3 error
+        res.send(`Upstream error: ${err.msg.code}`);
+      else res.send(err.msg);
+    }
   };
   app.use(errorHandler);
 
