@@ -5,7 +5,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { AbortController } from "@aws-sdk/abort-controller";
-import { Request, RequestHandler } from "express";
+import { RequestHandler } from "express";
 import * as crypto from "crypto";
 import config from "./config";
 import { DB } from "./db";
@@ -60,8 +60,8 @@ export class Routes {
         currentBucketId
       );
 
-      var stream1 = req.pipe(new PassThrough());
-      var stream2 = req.pipe(new PassThrough());
+      const stream1 = req.pipe(new PassThrough());
+      const stream2 = req.pipe(new PassThrough());
 
       const uploadCmd = new PutObjectCommand({
         Bucket: bucketName,
