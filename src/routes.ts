@@ -101,6 +101,10 @@ export class Routes {
 
   getFile: RequestHandler = async (req, res, next) => {
     const params: Params = req.params as any;
+    if (Array.isArray(req.query.version)) {
+      return next({ status: 400, msg: "Multiple versions given" });
+    }
+    const version = (req.query.version as string) || undefined;
     try {
       const { bucketId } = await this.db.selectBucketId(
         params.bucket,
@@ -113,7 +117,7 @@ export class Routes {
       const downloadCmd = new GetObjectCommand({
         Bucket: bucketToS3Format(bucket),
         Key: params.key,
-        VersionId: req.query.version as string,
+        VersionId: version,
       });
 
       const obj = await this.s3.send(downloadCmd);
