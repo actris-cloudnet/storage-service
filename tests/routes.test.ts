@@ -342,6 +342,25 @@ describe("GET /:bucket/:key", () => {
       response: { status: 401, data: "Unauthorized" },
     });
   });
+
+  it("should error when given multiple versions", async () => {
+    await axios.put(validUrl, fs.createReadStream(testdataPath), validConfig);
+    return expect(
+      axios.get(validUrl, {
+        auth: validConfig.auth,
+        params: { version: ["abc", "bcd"] },
+      })
+    ).rejects.toMatchObject({
+      response: { status: 400, data: "Multiple versions given" },
+    });
+  });
+
+  it("should ignore empty version parameter", async () => {
+    await axios.put(validUrl, fs.createReadStream(testdataPath), validConfig);
+    return expect(
+      axios.get(validUrl, { auth: validConfig.auth, params: { version: "" } })
+    ).resolves.toMatchObject({ status: 200, data: "content\n" });
+  });
 });
 
 describe("DELETE /:bucket/:key", () => {
