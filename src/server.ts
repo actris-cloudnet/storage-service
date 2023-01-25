@@ -60,18 +60,18 @@ import pinoHttp from "pino-http";
   );
 
   const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
-    if (err.status)
-      console.error(
-        `Error ${err.status} in ${req.method} ${req.path}:`,
-        JSON.stringify(err, null, 2)
-      );
-    else console.error(`Error 500 in ${req.method} ${req.path}:`, err);
+    res.err = err;
+    if (res.headersSent) {
+      res.end();
+      return;
+    }
     res.status(err.status || 500);
-    if (err.msg && err.msg.code)
+    if (err.msg && err.msg.code) {
       // S3 error
       res.send(`Upstream error: ${err.msg.code}`);
-    else res.send(err.msg);
-    next();
+    } else {
+      res.send(err.msg);
+    }
   };
   app.use(errorHandler);
 
