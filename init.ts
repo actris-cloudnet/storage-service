@@ -1,12 +1,8 @@
 import * as fs from "fs";
-import {
-  S3Client,
-  CreateBucketCommand,
-  PutBucketVersioningCommand,
-} from "@aws-sdk/client-s3";
+import * as AWS from "aws-sdk";
 import { Client } from "pg";
 
-const s3 = new S3Client(
+const s3 = new AWS.S3(
   JSON.parse(fs.readFileSync("src/config/local.connection.json").toString())
 );
 
@@ -31,9 +27,7 @@ const buckets = [
   process.stdout.write("Initializing buckets... ");
   try {
     await Promise.all(
-      buckets.map((bucket) =>
-        s3.send(new CreateBucketCommand({ Bucket: bucket }))
-      )
+      buckets.map((bucket) => s3.createBucket({ Bucket: bucket }).promise())
     );
   } catch (e) {
     console.error("Failed to create buckets", e);
@@ -45,9 +39,9 @@ const buckets = [
       Status: "Enabled",
     },
   };
-  await s3.send(new PutBucketVersioningCommand(params));
+  await s3.putBucketVersioning(params).promise();
   params.Bucket = buckets[4];
-  await s3.send(new PutBucketVersioningCommand(params));
+  await s3.putBucketVersioning(params).promise();
   console.log("OK");
 
   process.stdout.write("Initializing db... ");

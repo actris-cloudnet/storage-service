@@ -1,17 +1,10 @@
-import {
-  CompleteMultipartUploadCommandOutput,
-  GetObjectCommand,
-  HeadObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
-import { Upload } from "@aws-sdk/lib-storage";
-import { AbortController } from "@aws-sdk/abort-controller";
-import { RequestHandler } from "express";
+import { S3, AWSError } from "aws-sdk";
+import { Request, RequestHandler } from "express";
+import { PutObjectRequest, GetObjectRequest } from "aws-sdk/clients/s3";
 import * as crypto from "crypto";
 import config from "./config";
 import { DB } from "./db";
 import { bucketToS3Format } from "./lib";
-import { Readable, PassThrough } from "node:stream";
 
 interface Params {
   bucket: string;
@@ -19,12 +12,12 @@ interface Params {
 }
 
 export class Routes {
-  constructor(s3: S3Client, db: DB) {
+  constructor(s3: S3, db: DB) {
     this.s3 = s3;
     this.db = db;
   }
 
-  readonly s3: S3Client;
+  readonly s3: S3;
   readonly db: DB;
   readonly S3_BAD_HASH_ERROR_CODE = "BadDigest";
 
@@ -34,7 +27,7 @@ export class Routes {
     if (!expectedChecksum)
       return next({ status: 400, msg: "Content-MD5 header is missing" });
 
-    const uploadAbort = new AbortController();
+    let managedUpload;
     try {
       const { bucketId } = await this.db.selectBucketId(
         params.bucket,
@@ -56,28 +49,22 @@ export class Routes {
         currentBucketId = bucketId;
       }
 
-      const bucketName = this.getFullBucketName(
-        bucketToS3Format(params.bucket),
-        currentBucketId
-      );
+      const uploadParams: PutObjectRequest = {
+        Bucket: this.getFullBucketName(
+          bucketToS3Format(params.bucket),
+          currentBucketId
+        ),
+        Key: params.key,
+        Body: req,
+        ContentType: req.headers["content-type"] || "application/octet-stream",
+      };
 
-      const multipartUpload = new Upload({
-        client: this.s3,
-        params: {
-          Bucket: bucketName,
-          Key: params.key,
-          Body: req,
-          ContentType:
-            req.headers["content-type"] || "application/octet-stream",
-        },
-        abortController: uploadAbort,
-      });
-
+      managedUpload = this.s3.upload(uploadParams);
       const [, uploadRes] = await Promise.all([
         this.checkHash(req, expectedChecksum),
-        multipartUpload.done(),
+        managedUpload.promise(),
       ]);
-      const size = await this.getSizeOfS3Obj(params.key, bucketName);
+      const size = await this.getSizeOfS3Obj(uploadParams);
 
       if (exists) {
         res.status(200);
@@ -86,12 +73,9 @@ export class Routes {
         res.status(201);
       }
 
-      return res.send({
-        size,
-        version: (uploadRes as CompleteMultipartUploadCommandOutput).VersionId,
-      });
+      return res.send({ size, version: (uploadRes as any).VersionId });
     } catch (err: any) {
-      uploadAbort.abort();
+      if (managedUpload) managedUpload.abort();
       if (err.status && err.msg)
         return next({ status: err.status, msg: err.msg }); // Client error
       if (err.statusCode) return next({ status: 502, msg: err }); // S3 error
@@ -101,10 +85,6 @@ export class Routes {
 
   getFile: RequestHandler = async (req, res, next) => {
     const params: Params = req.params as any;
-    if (Array.isArray(req.query.version)) {
-      return next({ status: 400, msg: "Multiple versions given" });
-    }
-    const version = (req.query.version as string) || undefined;
     try {
       const { bucketId } = await this.db.selectBucketId(
         params.bucket,
@@ -114,15 +94,15 @@ export class Routes {
         return next({ status: 404, msg: "File not found" });
       const bucket = this.getFullBucketName(params.bucket, bucketId);
 
-      const downloadCmd = new GetObjectCommand({
+      const downloadParams: GetObjectRequest = {
         Bucket: bucketToS3Format(bucket),
         Key: params.key,
-        VersionId: version,
-      });
+        VersionId: req.query.version as string,
+      };
 
-      const obj = await this.s3.send(downloadCmd);
-      (obj.Body as Readable)
-        .on("error", (err: any) => {
+      const objStream = this.s3.getObject(downloadParams).createReadStream();
+      objStream
+        .on("error", (err: AWSError) => {
           if (err.statusCode == 404)
             return next({ status: 404, msg: "Version not found" });
           return next({ status: 502, msg: err });
@@ -135,20 +115,20 @@ export class Routes {
 
   deleteVolatileFile: RequestHandler = async (req, res, next) => {
     const params: Params = req.params as any;
-    const deleteCmd = new GetObjectCommand({
+    const deleteParams: GetObjectRequest = {
       Bucket: bucketToS3Format(req.params.bucket),
       Key: req.params.key,
-    });
+    };
     try {
-      await this.s3.send(deleteCmd);
-      await this.db.deleteObject(params.bucket, params.key);
-      res.sendStatus(200);
+      await this.s3.deleteObject(deleteParams).promise();
     } catch (err: any) {
-      return next({ status: 502, msg: err });
+      next({ status: 502, msg: err });
     }
+    await this.db.deleteObject(params.bucket, params.key);
+    res.sendStatus(200);
   };
 
-  private checkHash(req: Readable, expectedChecksum: string): Promise<void> {
+  private checkHash(req: Request, expectedChecksum: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const hash = crypto.createHash("md5");
       req.on("data", (data) => hash.update(data));
@@ -163,10 +143,11 @@ export class Routes {
     });
   }
 
-  private async getSizeOfS3Obj(key: string, bucket: string) {
-    const headCmd = new HeadObjectCommand({ Key: key, Bucket: bucket });
-    const headRes = await this.s3.send(headCmd);
-    return headRes.ContentLength;
+  private async getSizeOfS3Obj(params: PutObjectRequest) {
+    return this.s3
+      .headObject({ Key: params.Key, Bucket: params.Bucket })
+      .promise()
+      .then((res) => res.ContentLength);
   }
 
   private getFullBucketName(bucket: string, bucketId: number) {
