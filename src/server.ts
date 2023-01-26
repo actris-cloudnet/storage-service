@@ -9,6 +9,7 @@ import { BasicStrategy } from "passport-http";
 import * as crypto from "crypto";
 import { DB } from "./db";
 import pinoHttp from "pino-http";
+import * as http from "node:http";
 
 (async function () {
   const port = config.port;
@@ -75,7 +76,8 @@ import pinoHttp from "pino-http";
   };
   app.use(errorHandler);
 
-  app.listen(port, () =>
+  const server = http.createServer({ requestTimeout: 60 * 60 * 1000 }, app);
+  server.listen(port, () =>
     console.log(
       `App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}, SS_MODE=${process.env.SS_MODE}`
     )
