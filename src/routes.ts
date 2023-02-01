@@ -1,10 +1,11 @@
-import { S3, AWSError } from "aws-sdk";
+import { S3 } from "aws-sdk";
 import { Request, RequestHandler } from "express";
 import { PutObjectRequest, GetObjectRequest } from "aws-sdk/clients/s3";
 import * as crypto from "crypto";
 import config from "./config";
 import { DB } from "./db";
 import { bucketToS3Format } from "./lib";
+import { Writable } from "node:stream";
 
 interface Params {
   bucket: string;
@@ -83,6 +84,44 @@ export class Routes {
     }
   };
 
+  private async streamFile(
+    params: GetObjectRequest,
+    output: Writable
+  ): Promise<void> {
+    const meta = await this.s3.headObject(params).promise();
+    const totalBytes = meta.ContentLength;
+    if (!totalBytes) {
+      return Promise.reject("invalid content length");
+    }
+    const chunkSize = 5 * 1024 * 1024;
+    let bytesRead = 0;
+    return new Promise((resolve, reject) => {
+      const nextChunk = () => {
+        this.s3
+          .getObject({
+            ...params,
+            Range: `bytes=${bytesRead}-${
+              Math.min(bytesRead + chunkSize, totalBytes) - 1
+            }`,
+            IfMatch: meta.ETag,
+          })
+          .createReadStream()
+          .on("error", reject)
+          .on("end", () => {
+            bytesRead += chunkSize;
+            if (bytesRead < totalBytes) {
+              nextChunk();
+            } else {
+              output.end();
+              resolve();
+            }
+          })
+          .pipe(output, { end: false });
+      };
+      nextChunk();
+    });
+  }
+
   getFile: RequestHandler = async (req, res, next) => {
     const params: Params = req.params as any;
     try {
@@ -100,14 +139,7 @@ export class Routes {
         VersionId: req.query.version as string,
       };
 
-      const objStream = this.s3.getObject(downloadParams).createReadStream();
-      objStream
-        .on("error", (err: AWSError) => {
-          if (err.statusCode == 404)
-            return next({ status: 404, msg: "Version not found" });
-          return next({ status: 502, msg: err });
-        })
-        .pipe(res);
+      await this.streamFile(downloadParams, res);
     } catch (err: any) {
       next(err);
     }
