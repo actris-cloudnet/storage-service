@@ -82,4 +82,10 @@ import * as http from "node:http";
       `App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}, SS_MODE=${process.env.SS_MODE}`
     )
   );
+  process.on("SIGTERM", () => {
+    console.log("SIGTERM signal received: closing HTTP server");
+    server.close(() => {
+      console.log("HTTP server closed");
+    });
+  });
 })();
