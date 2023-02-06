@@ -2,6 +2,7 @@ import axios from "axios";
 import * as fs from "fs";
 import * as AWS from "aws-sdk";
 import { Client } from "pg";
+import * as crypto from "crypto";
 
 const bucket = "cloudnet-test-volatile";
 const versionedBucket = "cloudnet-test-versioning";
@@ -337,6 +338,25 @@ describe("GET /:bucket/:key", () => {
     return expect(axios.get(validUrl)).rejects.toMatchObject({
       response: { status: 401, data: "Unauthorized" },
     });
+  });
+
+  it("should respond with 200 on a large file", async () => {
+    const string = "BIG";
+    const buffer = string.repeat(
+      Math.ceil((100 * 1024 * 1024) / string.length)
+    );
+    const hash = crypto.createHash("md5");
+    hash.update(buffer);
+    await axios.put(validUrl, buffer, {
+      headers: {
+        "Content-MD5": hash.digest("base64"),
+        "Content-Type": "text/plain",
+      },
+      auth: validConfig.auth,
+    });
+    return expect(
+      axios.get(validUrl, { auth: validConfig.auth })
+    ).resolves.toMatchObject({ status: 200, data: buffer });
   });
 });
 
