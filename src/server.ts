@@ -11,7 +11,7 @@ import { DB } from "./db";
 import pinoHttp from "pino-http";
 import * as http from "node:http";
 
-(async function () {
+async function createServer(): Promise<void> {
   const port = config.port;
   const app = express();
 
@@ -82,10 +82,31 @@ import * as http from "node:http";
       `App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}, SS_MODE=${process.env.SS_MODE}`
     )
   );
-  process.on("SIGTERM", () => {
-    console.log("SIGTERM signal received: closing HTTP server");
-    server.close(() => {
-      console.log("HTTP server closed");
+
+  return new Promise((resolve, reject) => {
+    process.on("SIGTERM", () => {
+      console.log("SIGTERM signal received: closing HTTP server...");
+      server.close(() => {
+        console.log("HTTP server closed. Now closing database connection...");
+        db.close()
+          .then(() => {
+            console.log("Database connection closed.");
+            resolve();
+          })
+          .catch((err) => {
+            console.error("Failed to close database connection:", err);
+            reject(err);
+          });
+      });
     });
   });
-})();
+}
+
+createServer()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error(`Fatal error: ${err}`);
+    process.exit(1);
+  });

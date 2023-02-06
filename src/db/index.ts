@@ -10,6 +10,10 @@ export class DB {
     return this.client.connect();
   }
 
+  async close() {
+    return this.client.end();
+  }
+
   readonly client: Client;
 
   async selectObjectCountAndBucketId(bucket: string) {
