@@ -5,7 +5,7 @@ import * as crypto from "crypto";
 import config from "./config";
 import { DB } from "./db";
 import { bucketToS3Format } from "./lib";
-import { Writable } from "node:stream";
+import { S3ReadStream } from "./s3readstream";
 
 interface Params {
   bucket: string;
@@ -84,44 +84,6 @@ export class Routes {
     }
   };
 
-  private async streamFile(
-    params: GetObjectRequest,
-    output: Writable
-  ): Promise<void> {
-    const meta = await this.s3.headObject(params).promise();
-    const totalBytes = meta.ContentLength;
-    if (!totalBytes) {
-      return Promise.reject("invalid content length");
-    }
-    const chunkSize = 5 * 1024 * 1024;
-    let bytesRead = 0;
-    return new Promise((resolve, reject) => {
-      const nextChunk = () => {
-        this.s3
-          .getObject({
-            ...params,
-            Range: `bytes=${bytesRead}-${
-              Math.min(bytesRead + chunkSize, totalBytes) - 1
-            }`,
-            IfMatch: meta.ETag,
-          })
-          .createReadStream()
-          .on("error", reject)
-          .on("end", () => {
-            bytesRead += chunkSize;
-            if (bytesRead < totalBytes) {
-              nextChunk();
-            } else {
-              output.end();
-              resolve();
-            }
-          })
-          .pipe(output, { end: false });
-      };
-      nextChunk();
-    });
-  }
-
   getFile: RequestHandler = async (req, res, next) => {
     const params: Params = req.params as any;
     try {
@@ -139,7 +101,7 @@ export class Routes {
         VersionId: req.query.version as string,
       };
 
-      await this.streamFile(downloadParams, res);
+      new S3ReadStream(this.s3, downloadParams).on("error", next).pipe(res);
     } catch (err: any) {
       next(err);
     }
