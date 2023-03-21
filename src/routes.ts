@@ -12,6 +12,13 @@ interface Params {
   key: string;
 }
 
+// Different S3 implementations seem to indicate unversioned objects
+// differently. The behavior may also depend on whether PutObject or multipart
+// upload was used.
+function normalizeVersion(version: string) {
+  return version !== "" && version !== "null" ? version : undefined;
+}
+
 export class Routes {
   constructor(s3: S3, db: DB) {
     this.s3 = s3;
@@ -74,7 +81,10 @@ export class Routes {
         res.status(201);
       }
 
-      return res.send({ size, version: (uploadRes as any).VersionId });
+      return res.send({
+        size,
+        version: normalizeVersion((uploadRes as any).VersionId),
+      });
     } catch (err: any) {
       if (managedUpload) managedUpload.abort();
       if (err.status && err.msg)
@@ -98,8 +108,14 @@ export class Routes {
       const downloadParams: GetObjectRequest = {
         Bucket: bucketToS3Format(bucket),
         Key: params.key,
-        VersionId: req.query.version as string,
       };
+
+      if (req.query.version) {
+        if (typeof req.query.version !== "string") {
+          return next({ status: 400, msg: "Invalid version parameter" });
+        }
+        downloadParams.VersionId = normalizeVersion(req.query.version);
+      }
 
       new S3ReadStream(this.s3, downloadParams).on("error", next).pipe(res);
     } catch (err: any) {
