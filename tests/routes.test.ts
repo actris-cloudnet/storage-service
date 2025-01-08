@@ -222,7 +222,7 @@ describe("PUT /:bucket/:key", () => {
   it("should respond with 400 if checksum is invalid", async () => {
     const invalidConfig = {
       ...validConfig,
-      ...{ headers: { "Content-MD5": "81uBeeS75+K0oHTc72LelQ==" } },
+      headers: { "Content-MD5": "81uBeeS75+K0oHTc72LelQ==" },
     };
     await expect(
       axios.put(validUrl, fs.createReadStream(testdataPath), invalidConfig)
@@ -235,11 +235,13 @@ describe("PUT /:bucket/:key", () => {
   it("should respond with 401 if auth is invalid", async () => {
     const invalidConfig = {
       ...validConfig,
-      ...{ auth: { username: "test", password: "kissa" } },
+      auth: { username: "test", password: "kissa" },
     };
     await expect(
       axios.put(validUrl, fs.createReadStream(testdataPath), invalidConfig)
-    ).rejects.toMatchObject({ response: { status: 401 } });
+    ).rejects.toMatchObject({
+      response: { status: 401, data: "Unauthorized" },
+    });
     return expect(
       s3.headObject({ Bucket: bucket, Key: key }).promise()
     ).rejects.toBeTruthy();

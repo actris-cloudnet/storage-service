@@ -4,12 +4,11 @@ import { Routes } from "./routes";
 import { ErrorRequestHandler } from "express";
 import { Middleware } from "./middleware";
 import { S3 } from "aws-sdk";
-import * as passport from "passport";
-import { BasicStrategy } from "passport-http";
 import * as crypto from "crypto";
 import { DB } from "./db";
 import pinoHttp from "pino-http";
 import * as http from "node:http";
+import * as basicAuth from "basic-auth";
 
 async function createServer(): Promise<void> {
   const port = config.port;
@@ -23,38 +22,33 @@ async function createServer(): Promise<void> {
   const db = new DB();
   await db.init();
 
-  passport.use(
-    new BasicStrategy((user, pw, done) => {
-      const pwHash = crypto.createHash("sha256").update(pw).digest("hex");
-      const validCredentials = config.credentials.filter(
-        (cred) => cred.user == user
-      )[0];
-      if (!validCredentials || pwHash != validCredentials.pwHash)
-        return done(null, false);
-      return done(null, user);
-    })
-  );
+  app.use((req, res, next) => {
+    const credentials = basicAuth(req);
+    if (!credentials) {
+      return next({ status: 401, msg: "Unauthorized" });
+    }
+    const pwHash = crypto
+      .createHash("sha256")
+      .update(credentials.pass)
+      .digest("hex");
+    const validCredentials = config.credentials.find(
+      (cred) => cred.user === credentials.name
+    );
+    if (!validCredentials || pwHash != validCredentials.pwHash) {
+      return next({ status: 401, msg: "Unauthorized" });
+    }
+    next();
+  });
 
   const s3 = new S3(config.connection);
 
   const routes = new Routes(s3, db);
   const middleware = new Middleware(db);
 
-  app.put(
-    "/:bucket/*",
-    passport.authenticate("basic", { session: false }),
-    middleware.validateParams,
-    routes.putFile
-  );
-  app.get(
-    "/:bucket/*",
-    passport.authenticate("basic", { session: false }),
-    middleware.validateParams,
-    routes.getFile
-  );
+  app.put("/:bucket/*", middleware.validateParams, routes.putFile);
+  app.get("/:bucket/*", middleware.validateParams, routes.getFile);
   app.delete(
     "/:bucket/*",
-    passport.authenticate("basic", { session: false }),
     middleware.validateDeleteBucket,
     middleware.validateParams,
     routes.deleteVolatileFile
