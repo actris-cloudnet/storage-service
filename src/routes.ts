@@ -7,11 +7,6 @@ import { DB } from "./db";
 import { bucketToS3Format } from "./lib";
 import { S3ReadStream } from "./s3readstream";
 
-interface Params {
-  bucket: string;
-  key: string;
-}
-
 // Different S3 implementations seem to indicate unversioned objects
 // differently. The behavior may also depend on whether PutObject or multipart
 // upload was used.
@@ -30,7 +25,6 @@ export class Routes {
   readonly S3_BAD_HASH_ERROR_CODE = "BadDigest";
 
   putFile: RequestHandler = async (req, res, next) => {
-    const params: Params = req.params as any;
     const expectedChecksum = req.headers["content-md5"] as string | undefined;
     if (!expectedChecksum)
       return next({ status: 400, msg: "Content-MD5 header is missing" });
@@ -38,8 +32,8 @@ export class Routes {
     let managedUpload;
     try {
       const { bucketId } = await this.db.selectBucketId(
-        params.bucket,
-        params.key
+        req.params.bucket,
+        req.params.key
       ); // File exists
       let currentBucketId = bucketId;
       const exists = currentBucketId !== null;
@@ -47,22 +41,22 @@ export class Routes {
         // New file
         // eslint-disable-next-line prefer-const
         let { bucketId, objectCount } =
-          await this.db.selectObjectCountAndBucketId(params.bucket);
+          await this.db.selectObjectCountAndBucketId(req.params.bucket);
         if (
           objectCount >=
-          config.maxObjectsPerBucket(params.bucket) * (bucketId + 1)
+          config.maxObjectsPerBucket(req.params.bucket) * (bucketId + 1)
         ) {
-          bucketId = await this.db.increaseBucketId(params.bucket);
+          bucketId = await this.db.increaseBucketId(req.params.bucket);
         }
         currentBucketId = bucketId;
       }
 
       const uploadParams: PutObjectRequest = {
         Bucket: this.getFullBucketName(
-          bucketToS3Format(params.bucket),
+          bucketToS3Format(req.params.bucket),
           currentBucketId
         ),
-        Key: params.key,
+        Key: req.params.key,
         Body: req,
         ContentType: req.headers["content-type"] || "application/octet-stream",
       };
@@ -77,11 +71,15 @@ export class Routes {
       if (exists) {
         res.status(200);
       } else {
-        await this.db.saveObject(params.bucket, currentBucketId, params.key);
+        await this.db.saveObject(
+          req.params.bucket,
+          currentBucketId,
+          req.params.key
+        );
         res.status(201);
       }
 
-      return res.send({
+      res.send({
         size,
         version: normalizeVersion((uploadRes as any).VersionId),
       });
@@ -95,36 +93,29 @@ export class Routes {
   };
 
   getFile: RequestHandler = async (req, res, next) => {
-    const params: Params = req.params as any;
-    try {
-      const { bucketId } = await this.db.selectBucketId(
-        params.bucket,
-        params.key
-      );
-      if (bucketId === null)
-        return next({ status: 404, msg: "File not found" });
-      const bucket = this.getFullBucketName(params.bucket, bucketId);
+    const { bucketId } = await this.db.selectBucketId(
+      req.params.bucket,
+      req.params.key
+    );
+    if (bucketId === null) return next({ status: 404, msg: "File not found" });
+    const bucket = this.getFullBucketName(req.params.bucket, bucketId);
 
-      const downloadParams: GetObjectRequest = {
-        Bucket: bucketToS3Format(bucket),
-        Key: params.key,
-      };
+    const downloadParams: GetObjectRequest = {
+      Bucket: bucketToS3Format(bucket),
+      Key: req.params.key,
+    };
 
-      if (req.query.version) {
-        if (typeof req.query.version !== "string") {
-          return next({ status: 400, msg: "Invalid version parameter" });
-        }
-        downloadParams.VersionId = normalizeVersion(req.query.version);
+    if (req.query.version) {
+      if (typeof req.query.version !== "string") {
+        return next({ status: 400, msg: "Invalid version parameter" });
       }
-
-      new S3ReadStream(this.s3, downloadParams).on("error", next).pipe(res);
-    } catch (err: any) {
-      next(err);
+      downloadParams.VersionId = normalizeVersion(req.query.version);
     }
+
+    new S3ReadStream(this.s3, downloadParams).on("error", next).pipe(res);
   };
 
   deleteVolatileFile: RequestHandler = async (req, res, next) => {
-    const params: Params = req.params as any;
     const deleteParams: GetObjectRequest = {
       Bucket: bucketToS3Format(req.params.bucket),
       Key: req.params.key,
@@ -132,9 +123,9 @@ export class Routes {
     try {
       await this.s3.deleteObject(deleteParams).promise();
     } catch (err: any) {
-      next({ status: 502, msg: err });
+      return next({ status: 502, msg: err });
     }
-    await this.db.deleteObject(params.bucket, params.key);
+    await this.db.deleteObject(req.params.bucket, req.params.key);
     res.sendStatus(200);
   };
 

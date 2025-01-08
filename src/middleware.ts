@@ -27,7 +27,7 @@ export class Middleware {
     if (!validBucket)
       return next({ status: 404, msg: `Unknown bucket: ${bucket}` });
     req.params.bucket = validBucket;
-    req.params.key = req.params[0];
+    req.params.key = (req.params.key as unknown as string[]).join("/");
     return next();
   };
 }

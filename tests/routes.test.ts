@@ -376,7 +376,7 @@ describe("DELETE /:bucket/:key", () => {
       response: { status: 405, data: "DELETE not allowed for the bucket" },
     };
     return expect(
-      axios.delete(versionedUrl, { auth: validConfig.auth })
+      axios.delete(validVersionedUrl, { auth: validConfig.auth })
     ).rejects.toMatchObject(res);
   });
 

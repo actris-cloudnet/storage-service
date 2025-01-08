@@ -45,10 +45,10 @@ async function createServer(): Promise<void> {
   const routes = new Routes(s3, db);
   const middleware = new Middleware(db);
 
-  app.put("/:bucket/*", middleware.validateParams, routes.putFile);
-  app.get("/:bucket/*", middleware.validateParams, routes.getFile);
+  app.put("/:bucket/*key", middleware.validateParams, routes.putFile);
+  app.get("/:bucket/*key", middleware.validateParams, routes.getFile);
   app.delete(
-    "/:bucket/*",
+    "/:bucket/*key",
     middleware.validateDeleteBucket,
     middleware.validateParams,
     routes.deleteVolatileFile
