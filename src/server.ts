@@ -71,6 +71,9 @@ async function createServer(): Promise<void> {
   app.use(errorHandler);
 
   const server = http.createServer({ requestTimeout: 60 * 60 * 1000 }, app);
+  server.timeout = 10_000;
+  server.on("timeout", (socket) => socket.destroy());
+
   server.listen(port, () =>
     console.log(
       `App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}, SS_MODE=${process.env.SS_MODE}`
