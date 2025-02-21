@@ -1,5 +1,4 @@
 FROM node:22 AS dev
-USER node
 WORKDIR /app
 
 FROM node:22 AS builder
