@@ -39,7 +39,7 @@ export class S3ReadStream extends Readable {
     super();
     this._readSize = 0;
     this._fileSize = -1;
-    this._blockSize = 64 * 1024 * 1024;
+    this._blockSize = 1024 * 1024;
     this._s3 = s3;
     this._params = params;
   }

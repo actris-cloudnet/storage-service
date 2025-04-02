@@ -22,6 +22,7 @@ const config: S3Config = {
           accessKeyId: process.env.S3_ACCESSKEYID,
           secretAccessKey: process.env.S3_SECRETACCESSKEY,
           computeChecksums: true,
+          maxRetries: 10,
         }
       : readJSONFile("src/config/local.connection.json"),
   credentials: isProd
