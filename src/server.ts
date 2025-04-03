@@ -46,6 +46,7 @@ async function createServer(): Promise<void> {
   const middleware = new Middleware(db);
 
   app.put("/:bucket/*key", middleware.validateParams, routes.putFile);
+  app.head("/:bucket/*key", middleware.validateParams, routes.headFile);
   app.get("/:bucket/*key", middleware.validateParams, routes.getFile);
   app.delete(
     "/:bucket/*key",

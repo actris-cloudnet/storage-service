@@ -265,6 +265,32 @@ describe("PUT /:bucket/:key", () => {
   });
 });
 
+describe("HEAD /:bucket/:key", () => {
+  beforeEach(deleteExistingObjects);
+
+  it("should respond with 200 and file size when getting existing file", async () => {
+    await axios.put(validUrl, fs.createReadStream(testdataPath), validConfig);
+    return expect(
+      axios.head(validUrl, { auth: validConfig.auth })
+    ).resolves.toMatchObject({
+      status: 200,
+      headers: { "content-length": "8" },
+    });
+  });
+
+  it("should respond with 404 if file does not exist", async () => {
+    return expect(
+      axios.head(validUrl, { auth: validConfig.auth })
+    ).rejects.toMatchObject({ response: { status: 404 } });
+  });
+
+  it("should respond with 401 on invalid credentials", async () => {
+    return expect(axios.head(validUrl)).rejects.toMatchObject({
+      response: { status: 401 },
+    });
+  });
+});
+
 describe("GET /:bucket/:key", () => {
   beforeEach(deleteExistingObjects);
 

@@ -1,6 +1,10 @@
 import { S3 } from "aws-sdk";
 import { Request, RequestHandler } from "express";
-import { PutObjectRequest, GetObjectRequest } from "aws-sdk/clients/s3";
+import {
+  PutObjectRequest,
+  GetObjectRequest,
+  HeadObjectRequest,
+} from "aws-sdk/clients/s3";
 import * as crypto from "crypto";
 import config from "./config";
 import { DB } from "./db";
@@ -89,6 +93,34 @@ export class Routes {
         return next({ status: err.status, msg: err.msg }); // Client error
       if (err.statusCode) return next({ status: 502, msg: err }); // S3 error
       return next(err); // Internal error
+    }
+  };
+
+  headFile: RequestHandler = async (req, res, next) => {
+    const { bucketId } = await this.db.selectBucketId(
+      req.params.bucket,
+      req.params.key
+    );
+    if (bucketId === null) return next({ status: 404, msg: "File not found" });
+    const bucket = this.getFullBucketName(req.params.bucket, bucketId);
+
+    const downloadParams: HeadObjectRequest = {
+      Bucket: bucketToS3Format(bucket),
+      Key: req.params.key,
+    };
+
+    if (req.query.version) {
+      if (typeof req.query.version !== "string") {
+        return next({ status: 400, msg: "Invalid version parameter" });
+      }
+      downloadParams.VersionId = normalizeVersion(req.query.version);
+    }
+
+    try {
+      const obj = await this.s3.headObject(downloadParams).promise();
+      res.set({ "Content-Length": obj.ContentLength }).status(200).end();
+    } catch (e) {
+      next(e);
     }
   };
 
