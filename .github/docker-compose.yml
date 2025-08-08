@@ -24,11 +24,17 @@ services:
       moto-server:
         condition: service_started
     environment:
-      - SS_MODE=local
       - PGUSER=ss
       - PGPASSWORD=dev
       - PGHOST=db
       - PGDATABASE=ss
+      - SS_USER=test
+      - SS_PWHASH=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+      - S3_ENDPOINT=http://moto-server:5000
+      - S3_ACCESSKEYID=dev
+      - S3_SECRETACCESSKEY=dev
+      - S3_FORCE_PATH_STYLE=true
+      - SS_MAXOBJECTSPERBUCKET=10
     healthcheck:
       test:
         [
@@ -46,11 +52,17 @@ services:
       storage-service:
         condition: service_healthy
     environment:
-      - SS_MODE=local
       - PGUSER=ss
       - PGPASSWORD=dev
       - PGHOST=db
       - PGDATABASE=ss
+      - SS_USER=test
+      - SS_PWHASH=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+      - S3_ENDPOINT=http://moto-server:5000
+      - S3_ACCESSKEYID=dev
+      - S3_SECRETACCESSKEY=dev
+      - S3_FORCE_PATH_STYLE=true
+      - SS_MAXOBJECTSPERBUCKET=10
     command: ["npm", "test"]
   lint:
     image: storage-service
@@ -58,9 +70,15 @@ services:
       storage-service:
         condition: service_healthy
     environment:
-      - SS_MODE=local
       - PGUSER=ss
       - PGPASSWORD=dev
       - PGHOST=db
       - PGDATABASE=ss
+      - SS_USER=test
+      - SS_PWHASH=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+      - S3_ENDPOINT=http://moto-server:5000
+      - S3_ACCESSKEYID=dev
+      - S3_SECRETACCESSKEY=dev
+      - S3_FORCE_PATH_STYLE=true
+      - SS_MAXOBJECTSPERBUCKET=10
     command: ["npm", "run", "lint"]

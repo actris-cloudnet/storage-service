@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as AWS from "aws-sdk";
 import { Client } from "pg";
 import * as crypto from "crypto";
+import config from "../src/config";
 
 const bucket = "cloudnet-test-volatile";
 const versionedBucket = "cloudnet-test-versioning";
@@ -24,9 +25,7 @@ const validConfig = {
   },
 };
 
-const s3 = new AWS.S3(
-  JSON.parse(fs.readFileSync("src/config/local.connection.json").toString())
-);
+const s3 = new AWS.S3(config.connection);
 let client: Client;
 
 const deleteExistingObjects = async () => {

@@ -5,8 +5,8 @@
   "main": "build/server.js",
   "scripts": {
     "test": "jest",
-    "start": "ts-node init.ts && node build/server.js",
-    "start-dev": "ts-node init.ts && nodemon --watch 'src/**/*.ts' --ignore 'src/**/*.spec.ts' --exec 'npx ts-node --pretty -T' src/server.ts | pino-pretty",
+    "start": "node build/server.js",
+    "start-dev": "ts-node src/init.ts && nodemon --watch 'src/**/*.ts' --ignore 'src/**/*.spec.ts' --exec 'npx ts-node --pretty -T' src/server.ts | pino-pretty",
     "lint": "eslint --ext .ts .",
     "lint-fix": "eslint --ext .ts --fix .",
     "build": "tsc"

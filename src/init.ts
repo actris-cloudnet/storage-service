@@ -1,10 +1,9 @@
 import * as fs from "fs";
 import * as AWS from "aws-sdk";
 import { Client } from "pg";
+import config from "./config";
 
-const s3 = new AWS.S3(
-  JSON.parse(fs.readFileSync("src/config/local.connection.json").toString())
-);
+const s3 = new AWS.S3(config.connection);
 
 const buckets = [
   "cloudnet-test-volatile",
@@ -17,7 +16,7 @@ const buckets = [
 ];
 
 (async () => {
-  if (process.env.NODE_ENV == "production" || process.env.SS_MODE != "local") {
+  if (process.env.NODE_ENV == "production") {
     console.log(
       "Not running in local mode. Skipping bucket and table creation."
     );

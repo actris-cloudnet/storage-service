@@ -77,7 +77,7 @@ async function createServer(): Promise<void> {
 
   server.listen(port, () =>
     console.log(
-      `App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}, SS_MODE=${process.env.SS_MODE}`
+      `App listening on port ${port}, NODE_ENV=${process.env.NODE_ENV}`
     )
   );
 

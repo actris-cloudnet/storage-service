@@ -1,8 +1,0 @@
-{
-  "endpoint": "http://moto-server:5000",
-  "accessKeyId": "dev",
-  "secretAccessKey": "dev",
-  "region": "EU",
-  "s3ForcePathStyle": true,
-  "computeChecksum": true
-}
