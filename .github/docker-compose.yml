@@ -45,7 +45,7 @@ services:
         ]
       interval: 1s
       retries: 20
-    command: ["npm", "start"]
+    command: ["npm", "run", "start-test"]
   test:
     image: storage-service
     depends_on:

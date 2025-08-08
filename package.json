@@ -6,6 +6,7 @@
   "scripts": {
     "test": "jest",
     "start": "node build/server.js",
+    "start-test": "ts-node src/init.ts && npm start",
     "start-dev": "ts-node src/init.ts && nodemon --watch 'src/**/*.ts' --ignore 'src/**/*.spec.ts' --exec 'npx ts-node --pretty -T' src/server.ts | pino-pretty",
     "lint": "eslint --ext .ts .",
     "lint-fix": "eslint --ext .ts --fix .",
