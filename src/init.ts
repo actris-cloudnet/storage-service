@@ -13,6 +13,7 @@ const buckets = [
   "cloudnet-product",
   "cloudnet-img",
   "cloudnet-upload",
+  "cloudnet-product-new",
 ];
 
 (async () => {
